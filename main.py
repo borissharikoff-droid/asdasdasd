@@ -307,6 +307,10 @@ class SalesBot:
         def money_command(message):
             self._handle_money(message)
         
+        @self.bot.message_handler(commands=['debug'])
+        def debug_command(message):
+            self._handle_debug(message)
+        
         @self.bot.message_handler(func=lambda message: True)
         def handle_message(message):
             self._handle_sales_message(message)
@@ -344,6 +348,7 @@ class SalesBot:
 /start — Главное меню
 /stats — Статистика продаж
 /money — Финансовая статистика
+/debug — Отладка таблицы
 
 // <b>ID чата:</b> <code>{message.chat.id}</code>
         """
@@ -573,6 +578,52 @@ class SalesBot:
         except Exception as e:
             logger.error(f"Ошибка получения финансовых данных: {e}")
             return {}
+    
+    def _handle_debug(self, message):
+        """Отладочная команда для просмотра структуры таблицы"""
+        try:
+            if not self.sheet:
+                self._init_sheets()
+            
+            all_values = self.sheet.get_all_values()
+            
+            debug_text = f"🔍 <b>Отладка таблицы</b>\n\n"
+            debug_text += f"📊 Всего строк: {len(all_values)}\n\n"
+            
+            # Показываем первые 5 строк
+            for i, row in enumerate(all_values[:5]):
+                debug_text += f"<b>Строка {i}:</b>\n"
+                for j, cell in enumerate(row):
+                    if cell:  # Показываем только непустые ячейки
+                        debug_text += f"  {chr(65+j)}{i+1}: {cell}\n"
+                debug_text += "\n"
+            
+            # Ищем строки с валютами
+            currency_rows = []
+            for i, row in enumerate(all_values):
+                if len(row) > 10 and row[10] in ['USDT', 'RUB']:
+                    currency_rows.append(f"Строка {i}: {row[10]} - {row[12] if len(row) > 12 else 'нет данных'}")
+            
+            if currency_rows:
+                debug_text += f"<b>Строки с валютами:</b>\n"
+                for row_info in currency_rows:
+                    debug_text += f"• {row_info}\n"
+            else:
+                debug_text += "<b>Строки с валютами не найдены</b>\n"
+            
+            self.bot.send_message(
+                message.chat.id,
+                debug_text,
+                parse_mode='HTML'
+            )
+            
+        except Exception as e:
+            logger.error(f"Ошибка отладки: {e}")
+            self.bot.send_message(
+                message.chat.id,
+                f"❌ Ошибка отладки: {str(e)}",
+                parse_mode='HTML'
+            )
     
     def _parse_sales_message(self, text: str) -> Optional[Dict]:
         """Парсинг сообщения о продаже"""
