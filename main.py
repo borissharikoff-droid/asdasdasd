@@ -279,13 +279,22 @@ class SalesBot:
     
     def _handle_start(self, message):
         """Обработчик команды /start"""
+        # Временное логирование для получения ID
+        logger.info(f"=== ID ЧАТА ===")
+        logger.info(f"Chat ID: {message.chat.id}")
+        logger.info(f"Chat Type: {message.chat.type}")
+        if hasattr(message, 'message_thread_id') and message.message_thread_id:
+            logger.info(f"Topic ID: {message.message_thread_id}")
+            logger.info(f"Full ID: {message.chat.id}#{message.message_thread_id}")
+        logger.info(f"===============")
+        
         keyboard = types.InlineKeyboardMarkup()
         keyboard.add(types.InlineKeyboardButton(
             "📊 Открыть таблицу", 
             url=f"https://docs.google.com/spreadsheets/d/{self.sheets_id}"
         ))
         
-        welcome_text = """
+        welcome_text = f"""
 👾 <b>Бот для учета продажи рекламы Dox Media</b>
 
 // <b>Как использовать:</b>
@@ -300,6 +309,8 @@ class SalesBot:
 // <b>Доступные команды:</b>
 /start — Главное меню
 /stats — Статистика продаж
+
+// <b>ID чата:</b> <code>{message.chat.id}</code>
         """
         
         self.bot.send_message(
