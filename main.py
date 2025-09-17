@@ -499,9 +499,9 @@ class SalesBot:
                 logger.info(f"Строка {i}: {row}")
                 
                 if len(row) >= 19:  # Проверяем, что строка достаточно длинная
-                    # Ищем строки с валютами USDT и RUB в колонке K (индекс 10)
-                    if len(row) > 10 and row[10] in ['USDT', 'RUB']:
-                        currency = row[10]
+                    # Ищем строки с валютами USDT и RUB в колонке L (индекс 11)
+                    if len(row) > 11 and row[11] in ['USDT', 'RUB']:
+                        currency = row[11]
                         logger.info(f"Найдена валюта {currency} в строке {i}")
                         
                         # Выручка (колонка M, индекс 12)
@@ -601,8 +601,8 @@ class SalesBot:
             # Ищем строки с валютами
             currency_rows = []
             for i, row in enumerate(all_values):
-                if len(row) > 10 and row[10] in ['USDT', 'RUB']:
-                    currency_rows.append(f"Строка {i}: {row[10]} - {row[12] if len(row) > 12 else 'нет данных'}")
+                if len(row) > 11 and row[11] in ['USDT', 'RUB']:
+                    currency_rows.append(f"Строка {i}: {row[11]} - {row[12] if len(row) > 12 else 'нет данных'}")
             
             if currency_rows:
                 debug_text += f"<b>Строки с валютами:</b>\n"
