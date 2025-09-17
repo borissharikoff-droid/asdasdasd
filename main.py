@@ -567,9 +567,9 @@ class SalesBot:
             # Покупатель, Дата, Время, Сумма, Валюта, Тип оплаты, Формат, Внешняя/Внутренняя, Канал где была публикация, Комментарий
             row = [
                 str(data['manager']).strip(),  # Покупатель (без @, так как @ добавляется в парсере)
-                str(data['date']).strip(),  # Дата отдельно
-                str(data['time']).strip(),  # Время отдельно
-                amount_str,  # Сумма без пробелов
+                data['date'],  # Дата как строка без лишних символов
+                data['time'],  # Время как строка без лишних символов
+                float(amount_str),  # Сумма как число
                 str(data['currency']).strip(),  # Валюта
                 str(data.get('payment_type', '')).strip(),  # Тип оплаты
                 str(data.get('format', '')).strip(),  # Формат (может быть пустым)
@@ -579,7 +579,11 @@ class SalesBot:
             ]
             
             if self.sheet:
-                self.sheet.append_row(row)
+                # Получаем следующую пустую строку
+                next_row = len(self.sheet.get_all_values()) + 1
+                
+                # Добавляем данные с явным указанием типов
+                self.sheet.update(f'A{next_row}:J{next_row}', [row], value_input_option='USER_ENTERED')
                 logger.info(f"Данные добавлены в таблицу: {data}")
             else:
                 logger.info(f"Данные записаны в режиме симуляции: {data}")
