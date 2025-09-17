@@ -134,7 +134,7 @@ class SalesBot:
         return self.internal_external_aliases.get(key, internal_external)
 
     def _send_notification(self, data: Dict):
-        """Отправка уведомления о продаже в другой чат"""
+        """Отправка уведомления о продаже в другой чат/топик"""
         if not config.NOTIFICATION_CHAT_ID:
             return
         
@@ -153,12 +153,25 @@ class SalesBot:
 💬 <b>Комментарий:</b> {data.get('comment', 'Нет')}
             """
             
-            self.bot.send_message(
-                config.NOTIFICATION_CHAT_ID,
-                notification_text,
-                parse_mode='HTML'
-            )
-            logger.info(f"Уведомление отправлено в чат {config.NOTIFICATION_CHAT_ID}")
+            # Проверяем, есть ли ID топика в переменной
+            if '#' in config.NOTIFICATION_CHAT_ID:
+                # Отправляем в топик
+                chat_id, topic_id = config.NOTIFICATION_CHAT_ID.split('#')
+                self.bot.send_message(
+                    chat_id,
+                    notification_text,
+                    parse_mode='HTML',
+                    message_thread_id=int(topic_id)
+                )
+                logger.info(f"Уведомление отправлено в топик {config.NOTIFICATION_CHAT_ID}")
+            else:
+                # Отправляем в обычный чат
+                self.bot.send_message(
+                    config.NOTIFICATION_CHAT_ID,
+                    notification_text,
+                    parse_mode='HTML'
+                )
+                logger.info(f"Уведомление отправлено в чат {config.NOTIFICATION_CHAT_ID}")
             
         except Exception as e:
             logger.error(f"Ошибка отправки уведомления: {e}")
