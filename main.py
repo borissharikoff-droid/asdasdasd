@@ -143,8 +143,27 @@ class SalesBot:
         logger.info(f"NOTIFICATION_CHAT_ID: {config.NOTIFICATION_CHAT_ID}")
         
         try:
-            notification_text = f"""
-✅ <b>Новая продажа на {data['amount']} {data['currency']} от менеджера @{data.get('manager_username', 'unknown')} в тг</b>
+            # Проверяем, является ли менеджер @mqwou
+            manager_username = data.get('manager_username', 'unknown')
+            if manager_username == 'mqwou':
+                # Специальный формат для @mqwou с комиссией 5%
+                commission = data['amount'] * 0.05
+                final_amount = data['amount'] - commission
+                notification_text = f"""
+✅ <b>Новая продажа на {data['amount']} {data['currency']} от менеджера @{manager_username}</b>
+
+👤 <b>Покупатель:</b> {data['manager']}
+📅 <b>Дата:</b> {data['date']}
+🕐 <b>Время:</b> {data['time']}
+💰 <b>Сумма:</b> {data['amount']} {data['currency']} - 5% комиссия = {final_amount:.2f} {data['currency']}
+💳 <b>Тип оплаты:</b> {data.get('payment_type', 'Не указан')}
+📋 <b>Формат:</b> {data.get('format', 'Не указан')}
+🏢 <b>Внешняя/Внутренняя:</b> {data.get('internal_external', 'Не указано')}
+                """
+            else:
+                # Обычный формат для других менеджеров
+                notification_text = f"""
+✅ <b>Новая продажа на {data['amount']} {data['currency']} от менеджера @{manager_username} в тг</b>
 
 👤 <b>Покупатель:</b> {data['manager']}
 📅 <b>Дата:</b> {data['date']}
@@ -155,7 +174,7 @@ class SalesBot:
 🏢 <b>Внешняя/Внутренняя:</b> {data.get('internal_external', 'Не указано')}
 📺 <b>Канал:</b> {data['channel']}
 💬 <b>Комментарий:</b> {data.get('comment', 'Нет')}
-            """
+                """
             
             # Проверяем, есть ли ID топика в переменной
             if '#' in config.NOTIFICATION_CHAT_ID:
@@ -717,7 +736,7 @@ class SalesBot:
                 
                 # Отправляем подтверждение
                 confirmation_text = f"""
-✅ <b>Данные занесены в учет менеджером @{message.from_user.username} из тг</b>
+✅ <b>Данные занесены в учет менеджером @{message.from_user.username}</b>
 
 👤 <b>Покупатель:</b> {parsed_data['manager']}
 📅 <b>Дата:</b> {parsed_data['date']}
