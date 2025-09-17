@@ -314,6 +314,8 @@ class SalesBot:
         """Парсинг сообщения о продаже"""
         # Паттерны для различных форматов
         patterns = [
+            # @ads_busine 17.09 17:00 148usdt криптовалюта 1/24 внутренняя русский бизнес
+            r'@(\w+)\s+(\d{1,2}\.\d{1,2})\s+(\d{1,2}:\d{2})\s+(\d+(?:\.\d+)?)(usdt|р|руб|\$|₽|юсдт)\s+(\w+)\s+(\d+/\d+)\s+(\w+)\s+(.+)',
             # Максим Шариков 12.06 1215 500р сбп 1/48 внешка русский бизнес / комментарий
             r'(\w+\s+\w+)\s+(\d{1,2}\.\d{1,2})\s+(\d{1,2}:\d{2}|\d{3,4})\s+(\d+(?:\.\d+)?)(usdt|р|руб|\$|₽|юсдт)\s+(\w+)\s+(\d+/\d+)\s+(\w+)\s+(.+)',
             # Максим Шариков 12.06 1215 500р крипта внешка 1/48 русский бизнес / комментарий
@@ -366,16 +368,29 @@ class SalesBot:
                 groups = match.groups()
                 
                 if len(groups) == 9:
-                    # Новый формат: Максим Шариков 12.06 1215 500р сбп 1/48 внешка русский бизнес / комментарий
-                    date_str = groups[1]
-                    time_str = groups[2]
-                    amount = float(groups[3])
-                    currency = groups[4].lower()
-                    payment_type = groups[5]
-                    format_str = groups[6]
-                    internal_external = groups[7]
-                    channel = groups[8].strip()
-                    channel, comment = self._split_channel_and_comment(channel)
+                    # Проверяем, есть ли @ в начале (новый формат с @)
+                    if had_at_prefix:
+                        # @ads_busine 17.09 17:00 148usdt криптовалюта 1/24 внутренняя русский бизнес
+                        date_str = groups[1]
+                        time_str = groups[2]
+                        amount = float(groups[3])
+                        currency = groups[4].lower()
+                        payment_type = groups[5]
+                        format_str = groups[6]
+                        internal_external = groups[7]
+                        channel = groups[8].strip()
+                        channel, comment = self._split_channel_and_comment(channel)
+                    else:
+                        # Новый формат: Максим Шариков 12.06 1215 500р сбп 1/48 внешка русский бизнес / комментарий
+                        date_str = groups[1]
+                        time_str = groups[2]
+                        amount = float(groups[3])
+                        currency = groups[4].lower()
+                        payment_type = groups[5]
+                        format_str = groups[6]
+                        internal_external = groups[7]
+                        channel = groups[8].strip()
+                        channel, comment = self._split_channel_and_comment(channel)
                 elif len(groups) == 9 and ' ' in manager:
                     # Формат: Максим Шариков 12.06 1215 500р крипта внешка 1/48 русский бизнес / комментарий
                     date_str = groups[1]
