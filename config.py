@@ -20,3 +20,6 @@ SHEET_HEADERS = ['Покупатель', 'Дата', 'Время', 'Сумма',
 # Настройки логирования
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
 LOG_FORMAT = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+
+# ID чата для пересылки уведомлений о продажах
+NOTIFICATION_CHAT_ID = os.getenv("NOTIFICATION_CHAT_ID", "")

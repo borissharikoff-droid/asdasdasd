@@ -132,6 +132,36 @@ class SalesBot:
             return ""
         key = internal_external.strip().lower()
         return self.internal_external_aliases.get(key, internal_external)
+
+    def _send_notification(self, data: Dict):
+        """Отправка уведомления о продаже в другой чат"""
+        if not config.NOTIFICATION_CHAT_ID:
+            return
+        
+        try:
+            notification_text = f"""
+✅ <b>Новая продажа!</b>
+
+👤 <b>Менеджер:</b> {data['manager']}
+📅 <b>Дата:</b> {data['date']}
+🕐 <b>Время:</b> {data['time']}
+💰 <b>Сумма:</b> {data['amount']} {data['currency']}
+💳 <b>Тип оплаты:</b> {data.get('payment_type', 'Не указан')}
+📋 <b>Формат:</b> {data.get('format', 'Не указан')}
+🏢 <b>Внешняя/Внутренняя:</b> {data.get('internal_external', 'Не указано')}
+📺 <b>Канал:</b> {data['channel']}
+💬 <b>Комментарий:</b> {data.get('comment', 'Нет')}
+            """
+            
+            self.bot.send_message(
+                config.NOTIFICATION_CHAT_ID,
+                notification_text,
+                parse_mode='HTML'
+            )
+            logger.info(f"Уведомление отправлено в чат {config.NOTIFICATION_CHAT_ID}")
+            
+        except Exception as e:
+            logger.error(f"Ошибка отправки уведомления: {e}")
         
     def _setup_google_sheets(self):
         """Настройка подключения к Google Sheets"""
@@ -671,6 +701,9 @@ class SalesBot:
                     parse_mode='HTML',
                     reply_markup=keyboard
                 )
+                
+                # Отправляем уведомление в другой чат
+                self._send_notification(parsed_data)
                 
             except Exception as e:
                 logger.error(f"Ошибка обработки сообщения: {e}")
