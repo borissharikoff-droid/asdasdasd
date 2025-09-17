@@ -217,6 +217,8 @@ class SalesBot:
         """Парсинг сообщения о продаже"""
         # Паттерны для различных форматов
         patterns = [
+            # Тарас Лобков 12 декабря 11:11 1489usdt 1/24 BusinessChannel (без @, месяц словом)
+            r'(\w+\s+\w+)\s+(\d{1,2}\s+\w+)\s+(\d{1,2}:\d{2})\s+(\d+(?:\.\d+)?)(usdt|р|руб|\$|₽|юсдт)\s+(\d+/\d+)\s+(.+)',
             # @maxim 12 декабря 11:11 1489usdt 1/24 BusinessChannel (с форматом в канале)
             r'@(\w+)\s+(\d{1,2}\s+\w+)\s+(\d{1,2}:\d{2})\s+(\d+(?:\.\d+)?)(usdt|р|руб|\$|₽|юсдт)\s+(\d+/\d+)\s+(.+)',
             # @maxim 12.12 11:11 1489usdt 1/24 BusinessChannel (с форматом в канале)
@@ -255,6 +257,7 @@ class SalesBot:
             match = re.search(pattern, text, re.IGNORECASE)
             if match:
                 manager = match.group(1)
+                had_at_prefix = text.strip().startswith('@')
                 
                 # Проверяем, какой это формат по количеству групп и содержимому
                 if len(match.groups()) == 7 and match.group(6) and '/' in str(match.group(6)):
@@ -292,8 +295,9 @@ class SalesBot:
                     format_str = match.group(6)
                     channel = match.group(7).strip()
                 
-                # Всегда добавляем @ к имени менеджера для единообразия
-                manager = f"@{manager}"
+                # Добавляем @ только если он был в исходном сообщении
+                if had_at_prefix and not manager.startswith('@'):
+                    manager = f"@{manager}"
                 
                 # Нормализация времени (добавляем двоеточие если его нет)
                 if ':' not in time_str:
