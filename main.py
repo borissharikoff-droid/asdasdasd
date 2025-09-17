@@ -46,8 +46,23 @@ class SalesBot:
 
         # Разделители комментария после названия канала
         self.comment_delimiters = [' -- ', ' — ', ' – ', ' | ', '  ']
-        # Ключевые слова, с которых может начинаться комментарий
-        self.comment_keywords = ['вероятно', 'коммент', 'комментар', 'примечан', 'note', 'замет', 'comment']
+        # Ключевые слова/триггеры, с которых часто начинается комментарий
+        self.comment_keywords = [
+            'мб', 'может', 'возможно', 'вероятно', 'наверн', 'скорее',
+            'коммент', 'комментар', 'примечан', 'замет', 'note', 'comment',
+            'ещё', 'еще', 'купит', 'доп', 'доп.', '+', 'потом'
+        ]
+
+        # Нормализация названий каналов
+        self.channel_aliases = {
+            # русские варианты и сокращения → каноническое имя
+            'русский бизнес': 'Русский Бизнес | Экономика',
+            'русский  бизнес': 'Русский Бизнес | Экономика',
+            'русский-бизнес': 'Русский Бизнес | Экономика',
+            'рб': 'Русский Бизнес | Экономика',
+            'rb': 'Русский Бизнес | Экономика',
+            'русбизнес': 'Русский Бизнес | Экономика'
+        }
         
         # Настройка Google Sheets
         self._setup_google_sheets()
@@ -62,16 +77,28 @@ class SalesBot:
         for delim in self.comment_delimiters:
             if delim in text:
                 parts = text.split(delim, 1)
-                return parts[0].strip(), parts[1].strip()
+                return self._normalize_channel_name(parts[0].strip()), parts[1].strip()
         # Если специальных разделителей нет — пробуем по ключевым словам комментария
         lowered = text.lower()
         keyword_positions = [lowered.find(' ' + kw) for kw in self.comment_keywords]
         keyword_positions = [pos for pos in keyword_positions if pos > 0]
         if keyword_positions:
             split_pos = min(keyword_positions)
-            return text[:split_pos].strip(), text[split_pos:].strip()
+            return self._normalize_channel_name(text[:split_pos].strip()), text[split_pos:].strip()
         # Если ничего не нашли — считаем, что комментария нет
-        return text, ''
+        return self._normalize_channel_name(text), ''
+
+    def _normalize_channel_name(self, channel_name: str) -> str:
+        """Нормализует название канала по словарю синонимов/алиасов."""
+        key = channel_name.strip().lower()
+        # Убираем лишние пробелы/дефисы для сравнения
+        compact_key = key.replace('  ', ' ').replace('-', ' ').strip()
+        compact_key = ' '.join(compact_key.split())
+        if key in self.channel_aliases:
+            return self.channel_aliases[key]
+        if compact_key in self.channel_aliases:
+            return self.channel_aliases[compact_key]
+        return channel_name
         
     def _setup_google_sheets(self):
         """Настройка подключения к Google Sheets"""
