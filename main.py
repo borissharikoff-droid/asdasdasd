@@ -193,6 +193,10 @@ class SalesBot:
         def stats_command(message):
             self._handle_stats(message)
         
+        @self.bot.message_handler(commands=['resetstats'])
+        def reset_stats_command(message):
+            self._handle_reset_stats(message)
+        
         @self.bot.message_handler(func=lambda message: True)
         def handle_message(message):
             self._handle_sales_message(message)
@@ -219,6 +223,7 @@ class SalesBot:
 <b>Доступные команды:</b>
 /start - Главное меню
 /stats - Статистика продаж
+/resetstats - Обнулить статистику
 
 <b>Поддерживаемые валюты:</b>
 • USDT (usdt, $)
@@ -264,6 +269,20 @@ class SalesBot:
             stats_text, 
             parse_mode='HTML',
             reply_markup=keyboard
+        )
+    
+    def _handle_reset_stats(self, message):
+        """Обнуление статистики"""
+        self.stats = {
+            'total_usdt': 0,
+            'total_rub': 0,
+            'total_sales': 0,
+            'sales_by_payment': {}
+        }
+        self.bot.send_message(
+            message.chat.id,
+            "✅ Статистика обнулена. Используйте /stats для просмотра.",
+            parse_mode='HTML'
         )
     
     def _parse_sales_message(self, text: str) -> Optional[Dict]:
