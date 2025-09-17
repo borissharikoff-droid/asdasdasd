@@ -507,7 +507,7 @@ class SalesBot:
                         # Выручка (колонка M, индекс 12)
                         if len(row) > 12 and row[12]:
                             try:
-                                revenue_str = row[12].replace(',', '').replace(' ', '').replace('₽', '')
+                                revenue_str = row[12].replace(',', '').replace(' ', '').replace('\xa0', '').replace('₽', '')
                                 revenue = float(revenue_str)
                                 if currency == 'USDT':
                                     financial_data['revenue_usdt'] = revenue
@@ -520,7 +520,7 @@ class SalesBot:
                         # Чистыми заработано (колонка N, индекс 13)
                         if len(row) > 13 and row[13]:
                             try:
-                                net_str = row[13].replace(',', '').replace(' ', '').replace('₽', '')
+                                net_str = row[13].replace(',', '').replace(' ', '').replace('\xa0', '').replace('₽', '')
                                 net = float(net_str)
                                 if currency == 'USDT':
                                     financial_data['net_usdt'] = net
@@ -533,7 +533,7 @@ class SalesBot:
                         # Комиссия сейлза (колонка O, индекс 14)
                         if len(row) > 14 and row[14]:
                             try:
-                                commission_str = row[14].replace(',', '').replace(' ', '').replace('₽', '')
+                                commission_str = row[14].replace(',', '').replace(' ', '').replace('\xa0', '').replace('₽', '')
                                 commission = float(commission_str)
                                 if currency == 'USDT':
                                     financial_data['commission_usdt'] = commission
