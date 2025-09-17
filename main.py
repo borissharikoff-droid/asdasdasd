@@ -30,6 +30,9 @@ class SalesBot:
         # На всякий случай убираем вебхук перед polling, чтобы избежать 409 Conflict
         try:
             self.bot.remove_webhook()
+            # Небольшая задержка для завершения операции
+            import time
+            time.sleep(1)
         except Exception as e:
             logger.warning(f"Не удалось снять webhook: {e}")
         self.sheets_id = config.GOOGLE_SHEETS_ID
@@ -320,6 +323,11 @@ class SalesBot:
                 
                 # Парсинг даты
                 try:
+                    # Проверяем, что date_str не содержит время (двоеточие)
+                    if ':' in date_str:
+                        logger.error(f"Ошибка: date_str содержит время: {date_str}")
+                        continue
+                    
                     if '.' in date_str:
                         # Формат 14.05 или 12.12
                         day, month = date_str.split('.')
@@ -348,6 +356,9 @@ class SalesBot:
                             'сен': 9, 'окт': 10, 'ноя': 11, 'дек': 12
                         }
                         parts = date_str.split()
+                        if len(parts) < 2:
+                            logger.error(f"Ошибка: некорректный формат даты: {date_str}")
+                            continue
                         day = int(parts[0])
                         month = month_names.get(parts[1].lower(), 1)
                         current_year = datetime.now().year
@@ -505,11 +516,32 @@ class SalesBot:
     def run(self):
         """Запуск бота"""
         logger.info("Запуск бота...")
-        try:
-            self.bot.polling(none_stop=True, interval=0)
-        except Exception as e:
-            logger.error(f"Ошибка запуска бота: {e}")
-            raise
+        max_retries = 3
+        retry_count = 0
+        
+        while retry_count < max_retries:
+            try:
+                self.bot.polling(none_stop=True, interval=0, timeout=20)
+                break
+            except Exception as e:
+                retry_count += 1
+                logger.error(f"Ошибка запуска бота (попытка {retry_count}/{max_retries}): {e}")
+                
+                if "409" in str(e) or "Conflict" in str(e):
+                    logger.info("Обнаружен конфликт 409, пытаемся снять webhook и перезапуститься...")
+                    try:
+                        self.bot.remove_webhook()
+                        import time
+                        time.sleep(2)
+                    except Exception as webhook_error:
+                        logger.warning(f"Не удалось снять webhook: {webhook_error}")
+                
+                if retry_count < max_retries:
+                    import time
+                    time.sleep(5)  # Ждем 5 секунд перед повторной попыткой
+                else:
+                    logger.error("Достигнуто максимальное количество попыток запуска")
+                    raise
 
 def signal_handler(signum, frame):
     """Обработчик сигналов для graceful shutdown"""
