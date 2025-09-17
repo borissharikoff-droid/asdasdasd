@@ -566,16 +566,16 @@ class SalesBot:
             # Формируем данные в нужном формате
             # Покупатель, Дата, Время, Сумма, Валюта, Тип оплаты, Формат, Внешняя/Внутренняя, Канал где была публикация, Комментарий
             row = [
-                data['manager'],  # Покупатель (без @, так как @ добавляется в парсере)
-                data['date'],  # Дата отдельно
-                data['time'],  # Время отдельно
-                amount_str,  # Сумма с пробелами для тысяч
-                data['currency'],  # Валюта
-                data.get('payment_type', ''),  # Тип оплаты
-                data.get('format', ''),  # Формат (может быть пустым)
-                data.get('internal_external', ''),  # Внешняя/Внутренняя
-                data['channel'],  # Канал
-                data.get('comment', '')  # Комментарий
+                str(data['manager']).strip(),  # Покупатель (без @, так как @ добавляется в парсере)
+                str(data['date']).strip(),  # Дата отдельно
+                str(data['time']).strip(),  # Время отдельно
+                amount_str,  # Сумма без пробелов
+                str(data['currency']).strip(),  # Валюта
+                str(data.get('payment_type', '')).strip(),  # Тип оплаты
+                str(data.get('format', '')).strip(),  # Формат (может быть пустым)
+                str(data.get('internal_external', '')).strip(),  # Внешняя/Внутренняя
+                str(data['channel']).strip(),  # Канал
+                str(data.get('comment', '')).strip()  # Комментарий
             ]
             
             if self.sheet:
@@ -590,14 +590,13 @@ class SalesBot:
             raise
     
     def _format_amount(self, amount: float) -> str:
-        """Форматирование суммы с пробелами для тысяч"""
+        """Форматирование суммы без пробелов"""
         if amount.is_integer():
-            # Для целых чисел добавляем пробелы для тысяч
-            amount_int = int(amount)
-            return f"{amount_int:,}".replace(",", " ")
+            # Для целых чисел без пробелов
+            return str(int(amount))
         else:
             # Для дробных чисел
-            return f"{amount:,.2f}".replace(",", " ").replace(".00", "")
+            return str(amount)
     
     def _update_stats(self, data: Dict):
         """Обновление статистики"""
