@@ -136,7 +136,11 @@ class SalesBot:
     def _send_notification(self, data: Dict):
         """Отправка уведомления о продаже в другой чат/топик"""
         if not config.NOTIFICATION_CHAT_ID:
+            logger.info("NOTIFICATION_CHAT_ID не настроен")
             return
+        
+        logger.info(f"=== ОТПРАВКА УВЕДОМЛЕНИЯ ===")
+        logger.info(f"NOTIFICATION_CHAT_ID: {config.NOTIFICATION_CHAT_ID}")
         
         try:
             notification_text = f"""
@@ -157,24 +161,31 @@ class SalesBot:
             if '#' in config.NOTIFICATION_CHAT_ID:
                 # Отправляем в топик
                 chat_id, topic_id = config.NOTIFICATION_CHAT_ID.split('#')
+                logger.info(f"Отправляем в топик: chat_id={chat_id}, topic_id={topic_id}")
+                
                 self.bot.send_message(
                     chat_id,
                     notification_text,
                     parse_mode='HTML',
                     message_thread_id=int(topic_id)
                 )
-                logger.info(f"Уведомление отправлено в топик {config.NOTIFICATION_CHAT_ID}")
+                logger.info(f"✅ Уведомление отправлено в топик {config.NOTIFICATION_CHAT_ID}")
             else:
                 # Отправляем в обычный чат
+                logger.info(f"Отправляем в чат: {config.NOTIFICATION_CHAT_ID}")
+                
                 self.bot.send_message(
                     config.NOTIFICATION_CHAT_ID,
                     notification_text,
                     parse_mode='HTML'
                 )
-                logger.info(f"Уведомление отправлено в чат {config.NOTIFICATION_CHAT_ID}")
+                logger.info(f"✅ Уведомление отправлено в чат {config.NOTIFICATION_CHAT_ID}")
             
         except Exception as e:
-            logger.error(f"Ошибка отправки уведомления: {e}")
+            logger.error(f"❌ Ошибка отправки уведомления: {e}")
+            logger.error(f"NOTIFICATION_CHAT_ID: {config.NOTIFICATION_CHAT_ID}")
+        
+        logger.info(f"================================")
         
     def _setup_google_sheets(self):
         """Настройка подключения к Google Sheets"""
