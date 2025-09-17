@@ -264,11 +264,21 @@ class SalesBot:
                 
                 # Проверяем, какой это формат по количеству групп и содержимому
                 if len(match.groups()) == 7 and match.group(6) and '/' in str(match.group(6)):
-                    # Проверяем, есть ли пробел в имени менеджера (новый формат)
+                    # Проверяем, есть ли пробел в имени менеджера (новый формат без @)
                     if ' ' in manager:
-                        # Новый формат без @ (Ксения Вантрип 1230 16.04 501юсдт 1/24 БиБ)
-                        time_str = match.group(2)
-                        date_str = match.group(3)
+                        # У нас два возможных порядка: [time, date] или [date, time]
+                        g2 = match.group(2)
+                        g3 = match.group(3)
+                        if ':' in g2 and ':' not in g3:
+                            time_str = g2
+                            date_str = g3
+                        elif ':' in g3 and ':' not in g2:
+                            time_str = g3
+                            date_str = g2
+                        else:
+                            # По умолчанию считаем что 2-я группа это дата, 3-я — время
+                            date_str = g2
+                            time_str = g3
                         amount = float(match.group(4))
                         currency = match.group(5).lower()
                         format_str = match.group(6)
@@ -290,9 +300,18 @@ class SalesBot:
                     format_str = ""
                     channel = match.group(6).strip()
                 else:
-                    # Новый формат без @ (Ксения Вантрип 1230 16.04 501юсдт 1/24 БиБ)
-                    time_str = match.group(2)
-                    date_str = match.group(3)
+                    # Новый формат без @ (имя фамилия ...)
+                    g2 = match.group(2)
+                    g3 = match.group(3)
+                    if ':' in g2 and ':' not in g3:
+                        time_str = g2
+                        date_str = g3
+                    elif ':' in g3 and ':' not in g2:
+                        time_str = g3
+                        date_str = g2
+                    else:
+                        date_str = g2
+                        time_str = g3
                     amount = float(match.group(4))
                     currency = match.group(5).lower()
                     format_str = match.group(6)
