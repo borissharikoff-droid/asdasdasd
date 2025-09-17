@@ -486,71 +486,88 @@ class SalesBot:
                 'ip_count': 0
             }
             
+            # Добавляем отладочное логирование
+            logger.info(f"Всего строк в таблице: {len(all_values)}")
+            
             # Проходим по всем строкам и ищем финансовые данные
-            for row in all_values:
-                if len(row) >= 15:  # Проверяем, что строка достаточно длинная
-                    # Ищем строки с валютами USDT и RUB
-                    if len(row) > 10 and row[10] in ['USDT', 'RUB']:  # Колонка K (Валюта)
+            for i, row in enumerate(all_values):
+                logger.info(f"Строка {i}: {row}")
+                
+                if len(row) >= 19:  # Проверяем, что строка достаточно длинная
+                    # Ищем строки с валютами USDT и RUB в колонке K (индекс 10)
+                    if len(row) > 10 and row[10] in ['USDT', 'RUB']:
                         currency = row[10]
+                        logger.info(f"Найдена валюта {currency} в строке {i}")
                         
-                        # Выручка (колонка M)
+                        # Выручка (колонка M, индекс 12)
                         if len(row) > 12 and row[12]:
                             try:
-                                revenue = float(row[12].replace(',', '').replace(' ', ''))
+                                revenue_str = row[12].replace(',', '').replace(' ', '').replace('₽', '')
+                                revenue = float(revenue_str)
                                 if currency == 'USDT':
                                     financial_data['revenue_usdt'] = revenue
                                 elif currency == 'RUB':
                                     financial_data['revenue_rub'] = revenue
-                            except (ValueError, IndexError):
-                                pass
+                                logger.info(f"Выручка {currency}: {revenue}")
+                            except (ValueError, IndexError) as e:
+                                logger.warning(f"Ошибка парсинга выручки: {e}, значение: {row[12]}")
                         
-                        # Чистыми заработано (колонка N)
+                        # Чистыми заработано (колонка N, индекс 13)
                         if len(row) > 13 and row[13]:
                             try:
-                                net = float(row[13].replace(',', '').replace(' ', ''))
+                                net_str = row[13].replace(',', '').replace(' ', '').replace('₽', '')
+                                net = float(net_str)
                                 if currency == 'USDT':
                                     financial_data['net_usdt'] = net
                                 elif currency == 'RUB':
                                     financial_data['net_rub'] = net
-                            except (ValueError, IndexError):
-                                pass
+                                logger.info(f"Чистыми {currency}: {net}")
+                            except (ValueError, IndexError) as e:
+                                logger.warning(f"Ошибка парсинга чистых: {e}, значение: {row[13]}")
                         
-                        # Комиссия сейлза (колонка O)
+                        # Комиссия сейлза (колонка O, индекс 14)
                         if len(row) > 14 and row[14]:
                             try:
-                                commission = float(row[14].replace(',', '').replace(' ', ''))
+                                commission_str = row[14].replace(',', '').replace(' ', '').replace('₽', '')
+                                commission = float(commission_str)
                                 if currency == 'USDT':
                                     financial_data['commission_usdt'] = commission
                                 elif currency == 'RUB':
                                     financial_data['commission_rub'] = commission
-                            except (ValueError, IndexError):
-                                pass
+                                logger.info(f"Комиссия {currency}: {commission}")
+                            except (ValueError, IndexError) as e:
+                                logger.warning(f"Ошибка парсинга комиссии: {e}, значение: {row[14]}")
                         
-                        # Счетчики по типам оплаты (колонки P, Q, R, S)
+                        # Счетчики по типам оплаты (колонки P, Q, R, S - индексы 15, 16, 17, 18)
                         if len(row) > 15 and row[15]:  # СБП
                             try:
                                 financial_data['sbp_count'] = int(row[15])
+                                logger.info(f"СБП: {row[15]}")
                             except (ValueError, IndexError):
                                 pass
                         
                         if len(row) > 16 and row[16]:  # Карта
                             try:
                                 financial_data['card_count'] = int(row[16])
+                                logger.info(f"Карта: {row[16]}")
                             except (ValueError, IndexError):
                                 pass
                         
                         if len(row) > 17 and row[17]:  # Крипта
                             try:
                                 financial_data['crypto_count'] = int(row[17])
+                                logger.info(f"Крипта: {row[17]}")
                             except (ValueError, IndexError):
                                 pass
                         
                         if len(row) > 18 and row[18]:  # ИП
                             try:
                                 financial_data['ip_count'] = int(row[18])
+                                logger.info(f"ИП: {row[18]}")
                             except (ValueError, IndexError):
                                 pass
             
+            logger.info(f"Итоговые данные: {financial_data}")
             return financial_data
             
         except Exception as e:
