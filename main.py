@@ -741,7 +741,19 @@ class SalesBot:
     def run(self):
         """Запуск бота"""
         logger.info("Запуск бота...")
-        max_retries = 3
+        
+        # Удаляем webhook и очищаем обновления
+        try:
+            self.bot.remove_webhook()
+            import time
+            time.sleep(3)
+            # Очищаем очередь обновлений
+            self.bot.get_updates(offset=-1)
+            time.sleep(2)
+        except Exception as e:
+            logger.warning(f"Ошибка при очистке: {e}")
+        
+        max_retries = 5
         retry_count = 0
         
         while retry_count < max_retries:
@@ -753,17 +765,20 @@ class SalesBot:
                 logger.error(f"Ошибка запуска бота (попытка {retry_count}/{max_retries}): {e}")
                 
                 if "409" in str(e) or "Conflict" in str(e):
-                    logger.info("Обнаружен конфликт 409, пытаемся снять webhook и перезапуститься...")
+                    logger.info("Обнаружен конфликт 409, пытаемся снять webhook и очистить обновления...")
                     try:
                         self.bot.remove_webhook()
                         import time
-                        time.sleep(2)
+                        time.sleep(5)
+                        # Очищаем очередь обновлений
+                        self.bot.get_updates(offset=-1)
+                        time.sleep(5)
                     except Exception as webhook_error:
                         logger.warning(f"Не удалось снять webhook: {webhook_error}")
                 
                 if retry_count < max_retries:
                     import time
-                    time.sleep(5)  # Ждем 5 секунд перед повторной попыткой
+                    time.sleep(10)  # Увеличиваем время ожидания
                 else:
                     logger.error("Достигнуто максимальное количество попыток запуска")
                     raise
