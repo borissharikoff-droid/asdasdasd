@@ -163,7 +163,7 @@ class SalesBot:
             else:
                 # Обычный формат для других менеджеров
                 notification_text = f"""
-✅ <b>Новая продажа на {data['amount']} {data['currency']} от менеджера @{manager_username} в тг</b>
+✅ <b>Новая продажа на {data['amount']} {data['currency']} от менеджера @{manager_username}</b>
 
 👤 <b>Покупатель:</b> {data['manager']}
 📅 <b>Дата:</b> {data['date']}
