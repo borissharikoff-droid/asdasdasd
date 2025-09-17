@@ -144,9 +144,9 @@ class SalesBot:
         
         try:
             notification_text = f"""
-✅ <b>Новая продажа!</b>
+✅ <b>Новая продажа на {data['amount']} {data['currency']} от менеджера @{data.get('manager_username', 'unknown')} в тг</b>
 
-👤 <b>Менеджер:</b> {data['manager']}
+👤 <b>Покупатель:</b> {data['manager']}
 📅 <b>Дата:</b> {data['date']}
 🕐 <b>Время:</b> {data['time']}
 💰 <b>Сумма:</b> {data['amount']} {data['currency']}
@@ -717,9 +717,9 @@ class SalesBot:
                 
                 # Отправляем подтверждение
                 confirmation_text = f"""
-✅ <b>Данные занесены в учет!</b>
+✅ <b>Данные занесены в учет менеджером @{message.from_user.username} из тг</b>
 
-👤 <b>Менеджер:</b> {parsed_data['manager']}
+👤 <b>Покупатель:</b> {parsed_data['manager']}
 📅 <b>Дата:</b> {parsed_data['date']}
 🕐 <b>Время:</b> {parsed_data['time']}
 💰 <b>Сумма:</b> {parsed_data['amount']} {parsed_data['currency']}
@@ -738,6 +738,7 @@ class SalesBot:
                 )
                 
                 # Отправляем уведомление в другой чат
+                parsed_data['manager_username'] = message.from_user.username
                 self._send_notification(parsed_data)
                 
             except Exception as e:
