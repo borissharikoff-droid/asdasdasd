@@ -303,6 +303,10 @@ class SalesBot:
         def reset_stats_command(message):
             self._handle_reset_stats(message)
         
+        @self.bot.message_handler(commands=['money'])
+        def money_command(message):
+            self._handle_money(message)
+        
         @self.bot.message_handler(func=lambda message: True)
         def handle_message(message):
             self._handle_sales_message(message)
@@ -339,6 +343,7 @@ class SalesBot:
 // <b>Доступные команды:</b>
 /start — Главное меню
 /stats — Статистика продаж
+/money — Финансовая статистика
 
 // <b>ID чата:</b> <code>{message.chat.id}</code>
         """
@@ -393,6 +398,164 @@ class SalesBot:
             "✅ Статистика обнулена. Используйте /stats для просмотра.",
             parse_mode='HTML'
         )
+    
+    def _handle_money(self, message):
+        """Обработчик команды /money - финансовая статистика из таблицы"""
+        try:
+            if not self.sheet:
+                self._init_sheets()
+            
+            # Получаем финансовые данные из таблицы
+            financial_data = self._get_financial_data()
+            
+            if not financial_data:
+                self.bot.send_message(
+                    message.chat.id,
+                    "❌ Не удалось получить финансовые данные из таблицы",
+                    parse_mode='HTML'
+                )
+                return
+            
+            # Формируем сообщение
+            money_text = f"""
+💰 <b>Финансовая статистика</b>
+
+💵 <b>Выручка:</b>
+• USDT: {financial_data.get('revenue_usdt', 0):.2f}
+• RUB: {financial_data.get('revenue_rub', 0):,.0f}
+
+💸 <b>Чистыми заработано:</b>
+• USDT: {financial_data.get('net_usdt', 0):.2f}
+• RUB: {financial_data.get('net_rub', 0):,.0f}
+
+💼 <b>Комиссия сейлза:</b>
+• USDT: {financial_data.get('commission_usdt', 0):.2f}
+• RUB: {financial_data.get('commission_rub', 0):,.0f}
+
+💳 <b>По типам оплаты:</b>
+• СБП: {financial_data.get('sbp_count', 0)}
+• Карта: {financial_data.get('card_count', 0)}
+• Крипта: {financial_data.get('crypto_count', 0)}
+• ИП: {financial_data.get('ip_count', 0)}
+            """
+            
+            keyboard = types.InlineKeyboardMarkup()
+            keyboard.add(types.InlineKeyboardButton(
+                "📊 Открыть таблицу", 
+                url=f"https://docs.google.com/spreadsheets/d/{self.sheets_id}"
+            ))
+            
+            self.bot.send_message(
+                message.chat.id,
+                money_text,
+                parse_mode='HTML',
+                reply_markup=keyboard
+            )
+            
+        except Exception as e:
+            logger.error(f"Ошибка получения финансовых данных: {e}")
+            self.bot.send_message(
+                message.chat.id,
+                f"❌ Ошибка получения данных: {str(e)}",
+                parse_mode='HTML'
+            )
+    
+    def _get_financial_data(self) -> Dict:
+        """Получение финансовых данных из таблицы"""
+        try:
+            if not self.sheet:
+                return {}
+            
+            # Получаем все данные из таблицы
+            all_values = self.sheet.get_all_values()
+            
+            if len(all_values) < 2:  # Только заголовки
+                return {}
+            
+            # Ищем строки с финансовыми данными
+            financial_data = {
+                'revenue_usdt': 0,
+                'revenue_rub': 0,
+                'net_usdt': 0,
+                'net_rub': 0,
+                'commission_usdt': 0,
+                'commission_rub': 0,
+                'sbp_count': 0,
+                'card_count': 0,
+                'crypto_count': 0,
+                'ip_count': 0
+            }
+            
+            # Проходим по всем строкам и ищем финансовые данные
+            for row in all_values:
+                if len(row) >= 15:  # Проверяем, что строка достаточно длинная
+                    # Ищем строки с валютами USDT и RUB
+                    if len(row) > 10 and row[10] in ['USDT', 'RUB']:  # Колонка K (Валюта)
+                        currency = row[10]
+                        
+                        # Выручка (колонка M)
+                        if len(row) > 12 and row[12]:
+                            try:
+                                revenue = float(row[12].replace(',', '').replace(' ', ''))
+                                if currency == 'USDT':
+                                    financial_data['revenue_usdt'] = revenue
+                                elif currency == 'RUB':
+                                    financial_data['revenue_rub'] = revenue
+                            except (ValueError, IndexError):
+                                pass
+                        
+                        # Чистыми заработано (колонка N)
+                        if len(row) > 13 and row[13]:
+                            try:
+                                net = float(row[13].replace(',', '').replace(' ', ''))
+                                if currency == 'USDT':
+                                    financial_data['net_usdt'] = net
+                                elif currency == 'RUB':
+                                    financial_data['net_rub'] = net
+                            except (ValueError, IndexError):
+                                pass
+                        
+                        # Комиссия сейлза (колонка O)
+                        if len(row) > 14 and row[14]:
+                            try:
+                                commission = float(row[14].replace(',', '').replace(' ', ''))
+                                if currency == 'USDT':
+                                    financial_data['commission_usdt'] = commission
+                                elif currency == 'RUB':
+                                    financial_data['commission_rub'] = commission
+                            except (ValueError, IndexError):
+                                pass
+                        
+                        # Счетчики по типам оплаты (колонки P, Q, R, S)
+                        if len(row) > 15 and row[15]:  # СБП
+                            try:
+                                financial_data['sbp_count'] = int(row[15])
+                            except (ValueError, IndexError):
+                                pass
+                        
+                        if len(row) > 16 and row[16]:  # Карта
+                            try:
+                                financial_data['card_count'] = int(row[16])
+                            except (ValueError, IndexError):
+                                pass
+                        
+                        if len(row) > 17 and row[17]:  # Крипта
+                            try:
+                                financial_data['crypto_count'] = int(row[17])
+                            except (ValueError, IndexError):
+                                pass
+                        
+                        if len(row) > 18 and row[18]:  # ИП
+                            try:
+                                financial_data['ip_count'] = int(row[18])
+                            except (ValueError, IndexError):
+                                pass
+            
+            return financial_data
+            
+        except Exception as e:
+            logger.error(f"Ошибка получения финансовых данных: {e}")
+            return {}
     
     def _parse_sales_message(self, text: str) -> Optional[Dict]:
         """Парсинг сообщения о продаже"""
