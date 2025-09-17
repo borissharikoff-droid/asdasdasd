@@ -63,6 +63,23 @@ class SalesBot:
             'rb': 'Русский Бизнес | Экономика',
             'русбизнес': 'Русский Бизнес | Экономика'
         }
+
+        # Нормализация типов оплаты
+        self.payment_type_aliases = {
+            'сбп': 'СБП',
+            'карта': 'Карта',
+            'крипта': 'Криптовалюта',
+            'криптовалюта': 'Криптовалюта',
+            'ип': 'ИП'
+        }
+
+        # Нормализация внешняя/внутренняя
+        self.internal_external_aliases = {
+            'внешка': 'Внешняя',
+            'внешняя': 'Внешняя',
+            'внутренняя': 'Внутренняя',
+            'внутреняя': 'Внутренняя'
+        }
         
         # Настройка Google Sheets
         self._setup_google_sheets()
@@ -99,6 +116,20 @@ class SalesBot:
         if compact_key in self.channel_aliases:
             return self.channel_aliases[compact_key]
         return channel_name
+
+    def _normalize_payment_type(self, payment_type: str) -> str:
+        """Нормализует тип оплаты."""
+        if not payment_type:
+            return ""
+        key = payment_type.strip().lower()
+        return self.payment_type_aliases.get(key, payment_type)
+
+    def _normalize_internal_external(self, internal_external: str) -> str:
+        """Нормализует внешняя/внутренняя."""
+        if not internal_external:
+            return ""
+        key = internal_external.strip().lower()
+        return self.internal_external_aliases.get(key, internal_external)
         
     def _setup_google_sheets(self):
         """Настройка подключения к Google Sheets"""
@@ -214,12 +245,12 @@ class SalesBot:
 
 // <b>Как использовать:</b>
 Отправьте сообщение в формате:
-• <code>@кому продали (или без @, просто имя фамилия) дата время сумма формат канал / комментарий</code>
+• <code>@кому продали (или без @, просто имя фамилия) дата время сумма тип_оплаты формат внешняя/внутренняя канал / комментарий</code>
 
 // <b>Примеры:</b>
-• <code>Максим Шариков 12.06 1215 500р 1/48 русский бизнес / вероятно купят еще</code>
-• <code>@maxim 12 декабря 11:11 1489usdt 1/24 BusinessChannel</code>
-• <code>@anna 14.05 11:11 500р 1/24 рб | будут покупать еще</code>
+• <code>Максим Шариков 12.06 1215 500р сбп 1/48 внешка русский бизнес / вероятно купят еще</code>
+• <code>Максим Шариков 12.06 1215 500р ип 1/48 внутренняя русский бизнес / вероятно купят еще</code>
+• <code>Максим Шариков 12.06 1215 500р крипта внешка 1/48 русский бизнес / вероятно купят еще</code>
 
 // <b>Доступные команды:</b>
 /start — Главное меню
@@ -281,6 +312,10 @@ class SalesBot:
         """Парсинг сообщения о продаже"""
         # Паттерны для различных форматов
         patterns = [
+            # Максим Шариков 12.06 1215 500р сбп 1/48 внешка русский бизнес / комментарий
+            r'(\w+\s+\w+)\s+(\d{1,2}\.\d{1,2})\s+(\d{1,2}:\d{2}|\d{3,4})\s+(\d+(?:\.\d+)?)(usdt|р|руб|\$|₽|юсдт)\s+(\w+)\s+(\d+/\d+)\s+(\w+)\s+(.+)',
+            # Максим Шариков 12.06 1215 500р крипта внешка 1/48 русский бизнес / комментарий
+            r'(\w+\s+\w+)\s+(\d{1,2}\.\d{1,2})\s+(\d{1,2}:\d{2}|\d{3,4})\s+(\d+(?:\.\d+)?)(usdt|р|руб|\$|₽|юсдт)\s+(\w+)\s+(\w+)\s+(\d+/\d+)\s+(.+)',
             # Тарас Лобков 12 декабря 11:11 1489usdt 1/24 BusinessChannel (без @, месяц словом)
             r'(\w+\s+\w+)\s+(\d{1,2}\s+\w+)\s+(\d{1,2}:\d{2})\s+(\d+(?:\.\d+)?)(usdt|р|руб|\$|₽|юсдт)\s+(\d+/\d+)\s+(.+)',
             # Тарас Лобков 25.06 11:11 1489usdt 1/24 BusinessChannel (без @, дата с точкой)
@@ -325,13 +360,37 @@ class SalesBot:
                 manager = match.group(1)
                 had_at_prefix = text.strip().startswith('@')
                 
-                # Проверяем, какой это формат по количеству групп и содержимому
-                if len(match.groups()) == 7 and match.group(6) and '/' in str(match.group(6)):
-                    # Проверяем, есть ли пробел в имени менеджера (новый формат без @)
+                # Парсинг в зависимости от количества групп
+                groups = match.groups()
+                
+                if len(groups) == 9:
+                    # Новый формат: Максим Шариков 12.06 1215 500р сбп 1/48 внешка русский бизнес / комментарий
+                    date_str = groups[1]
+                    time_str = groups[2]
+                    amount = float(groups[3])
+                    currency = groups[4].lower()
+                    payment_type = groups[5]
+                    format_str = groups[6]
+                    internal_external = groups[7]
+                    channel = groups[8].strip()
+                    channel, comment = self._split_channel_and_comment(channel)
+                elif len(groups) == 9 and ' ' in manager:
+                    # Формат: Максим Шариков 12.06 1215 500р крипта внешка 1/48 русский бизнес / комментарий
+                    date_str = groups[1]
+                    time_str = groups[2]
+                    amount = float(groups[3])
+                    currency = groups[4].lower()
+                    payment_type = groups[5]
+                    internal_external = groups[6]
+                    format_str = groups[7]
+                    channel = groups[8].strip()
+                    channel, comment = self._split_channel_and_comment(channel)
+                elif len(groups) == 7 and groups[5] and '/' in str(groups[5]):
+                    # Старый формат с форматом (7 групп)
                     if ' ' in manager:
                         # У нас два возможных порядка: [time, date] или [date, time]
-                        g2 = match.group(2)
-                        g3 = match.group(3)
+                        g2 = groups[1]
+                        g3 = groups[2]
                         if ':' in g2 and ':' not in g3:
                             time_str = g2
                             date_str = g3
@@ -339,36 +398,33 @@ class SalesBot:
                             time_str = g3
                             date_str = g2
                         else:
-                            # По умолчанию считаем что 2-я группа это дата, 3-я — время
                             date_str = g2
                             time_str = g3
-                        amount = float(match.group(4))
-                        currency = match.group(5).lower()
-                        format_str = match.group(6)
-                        channel = match.group(7).strip()
-                        channel, comment = self._split_channel_and_comment(channel)
                     else:
-                        # Формат с @ и с форматом (7 групп)
-                        date_str = match.group(2)
-                        time_str = match.group(3)
-                        amount = float(match.group(4))
-                        currency = match.group(5).lower()
-                        format_str = match.group(6)
-                        channel = match.group(7).strip()
-                        channel, comment = self._split_channel_and_comment(channel)
-                elif len(match.groups()) == 6:
-                    # Формат с @ без формата (6 групп)
-                    date_str = match.group(2)
-                    time_str = match.group(3)
-                    amount = float(match.group(4))
-                    currency = match.group(5).lower()
-                    format_str = ""
-                    channel = match.group(6).strip()
+                        date_str = groups[1]
+                        time_str = groups[2]
+                    amount = float(groups[3])
+                    currency = groups[4].lower()
+                    format_str = groups[5]
+                    channel = groups[6].strip()
                     channel, comment = self._split_channel_and_comment(channel)
+                    payment_type = ""
+                    internal_external = ""
+                elif len(groups) == 6:
+                    # Формат без формата (6 групп)
+                    date_str = groups[1]
+                    time_str = groups[2]
+                    amount = float(groups[3])
+                    currency = groups[4].lower()
+                    format_str = ""
+                    channel = groups[5].strip()
+                    channel, comment = self._split_channel_and_comment(channel)
+                    payment_type = ""
+                    internal_external = ""
                 else:
                     # Новый формат без @ (имя фамилия ...)
-                    g2 = match.group(2)
-                    g3 = match.group(3)
+                    g2 = groups[1]
+                    g3 = groups[2]
                     if ':' in g2 and ':' not in g3:
                         time_str = g2
                         date_str = g3
@@ -378,11 +434,13 @@ class SalesBot:
                     else:
                         date_str = g2
                         time_str = g3
-                    amount = float(match.group(4))
-                    currency = match.group(5).lower()
-                    format_str = match.group(6)
-                    channel = match.group(7).strip()
+                    amount = float(groups[3])
+                    currency = groups[4].lower()
+                    format_str = groups[5]
+                    channel = groups[6].strip()
                     channel, comment = self._split_channel_and_comment(channel)
+                    payment_type = ""
+                    internal_external = ""
                 
                 # Добавляем @ только если он был в исходном сообщении
                 if had_at_prefix and not manager.startswith('@'):
@@ -406,6 +464,12 @@ class SalesBot:
                         currency = 'USDT'
                     else:
                         currency = 'RUB'  # По умолчанию рубли
+                
+                # Нормализация типа оплаты
+                payment_type = self._normalize_payment_type(payment_type)
+                
+                # Нормализация внешняя/внутренняя
+                internal_external = self._normalize_internal_external(internal_external)
                 
                 # Парсинг даты
                 try:
@@ -456,7 +520,9 @@ class SalesBot:
                         'time': time_str,
                         'amount': amount,
                         'currency': currency,
+                        'payment_type': payment_type,
                         'format': format_str,
+                        'internal_external': internal_external,
                         'channel': channel,
                         'comment': comment
                     }
@@ -481,14 +547,16 @@ class SalesBot:
             amount_str = self._format_amount(data['amount'])
             
             # Формируем данные в нужном формате
-            # Покупатель, Дата, Время, Сумма, Валюта, Формат, Канал где была публикация, Комментарий
+            # Покупатель, Дата, Время, Сумма, Валюта, Тип оплаты, Формат, Внешняя/Внутренняя, Канал где была публикация, Комментарий
             row = [
                 data['manager'],  # Покупатель (без @, так как @ добавляется в парсере)
                 data['date'],  # Дата отдельно
                 data['time'],  # Время отдельно
                 amount_str,  # Сумма с пробелами для тысяч
                 data['currency'],  # Валюта
+                data.get('payment_type', ''),  # Тип оплаты
                 data.get('format', ''),  # Формат (может быть пустым)
+                data.get('internal_external', ''),  # Внешняя/Внутренняя
                 data['channel'],  # Канал
                 data.get('comment', '')  # Комментарий
             ]
@@ -570,8 +638,11 @@ class SalesBot:
 📅 <b>Дата:</b> {parsed_data['date']}
 🕐 <b>Время:</b> {parsed_data['time']}
 💰 <b>Сумма:</b> {parsed_data['amount']} {parsed_data['currency']}
+💳 <b>Тип оплаты:</b> {parsed_data.get('payment_type', 'Не указан')}
 📋 <b>Формат:</b> {parsed_data.get('format', 'Не указан')}
+🏢 <b>Внешняя/Внутренняя:</b> {parsed_data.get('internal_external', 'Не указано')}
 📺 <b>Канал:</b> {parsed_data['channel']}
+💬 <b>Комментарий:</b> {parsed_data.get('comment', 'Нет')}
                 """
                 
                 self.bot.send_message(
