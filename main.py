@@ -43,12 +43,26 @@ class SalesBot:
             'total_sales': 0,
             'sales_by_payment': {}
         }
+
+        # Разделители комментария после названия канала
+        self.comment_delimiters = [' -- ', ' — ', ' – ', ' | ', '  ']
         
         # Настройка Google Sheets
         self._setup_google_sheets()
         
         # Регистрация обработчиков
         self._register_handlers()
+
+    def _split_channel_and_comment(self, channel_with_comment: str):
+        """Отделяет комментарий от названия канала по известным разделителям.
+        Возвращает (channel, comment). Если комментария нет — возвращает comment=''"""
+        text = channel_with_comment.strip()
+        for delim in self.comment_delimiters:
+            if delim in text:
+                parts = text.split(delim, 1)
+                return parts[0].strip(), parts[1].strip()
+        # Если специальных разделителей нет — считаем, что комментария нет
+        return text, ''
         
     def _setup_google_sheets(self):
         """Настройка подключения к Google Sheets"""
@@ -285,6 +299,7 @@ class SalesBot:
                         currency = match.group(5).lower()
                         format_str = match.group(6)
                         channel = match.group(7).strip()
+                        channel, comment = self._split_channel_and_comment(channel)
                     else:
                         # Формат с @ и с форматом (7 групп)
                         date_str = match.group(2)
@@ -293,6 +308,7 @@ class SalesBot:
                         currency = match.group(5).lower()
                         format_str = match.group(6)
                         channel = match.group(7).strip()
+                        channel, comment = self._split_channel_and_comment(channel)
                 elif len(match.groups()) == 6:
                     # Формат с @ без формата (6 групп)
                     date_str = match.group(2)
@@ -301,6 +317,7 @@ class SalesBot:
                     currency = match.group(5).lower()
                     format_str = ""
                     channel = match.group(6).strip()
+                    channel, comment = self._split_channel_and_comment(channel)
                 else:
                     # Новый формат без @ (имя фамилия ...)
                     g2 = match.group(2)
@@ -318,6 +335,7 @@ class SalesBot:
                     currency = match.group(5).lower()
                     format_str = match.group(6)
                     channel = match.group(7).strip()
+                    channel, comment = self._split_channel_and_comment(channel)
                 
                 # Добавляем @ только если он был в исходном сообщении
                 if had_at_prefix and not manager.startswith('@'):
@@ -392,7 +410,8 @@ class SalesBot:
                         'amount': amount,
                         'currency': currency,
                         'format': format_str,
-                        'channel': channel
+                        'channel': channel,
+                        'comment': comment
                     }
                 except Exception as e:
                     logger.error(f"Ошибка парсинга даты: {e}")
@@ -415,7 +434,7 @@ class SalesBot:
             amount_str = self._format_amount(data['amount'])
             
             # Формируем данные в нужном формате
-            # Покупатель, Дата, Время, Сумма, Валюта, Формат, Канал где была публикация
+            # Покупатель, Дата, Время, Сумма, Валюта, Формат, Канал где была публикация, Комментарий
             row = [
                 data['manager'],  # Покупатель (без @, так как @ добавляется в парсере)
                 data['date'],  # Дата отдельно
@@ -423,7 +442,8 @@ class SalesBot:
                 amount_str,  # Сумма с пробелами для тысяч
                 data['currency'],  # Валюта
                 data.get('format', ''),  # Формат (может быть пустым)
-                data['channel']  # Канал
+                data['channel'],  # Канал
+                data.get('comment', '')  # Комментарий
             ]
             
             if self.sheet:
