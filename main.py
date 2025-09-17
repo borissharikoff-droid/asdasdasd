@@ -46,6 +46,8 @@ class SalesBot:
 
         # Разделители комментария после названия канала
         self.comment_delimiters = [' -- ', ' — ', ' – ', ' | ', '  ']
+        # Ключевые слова, с которых может начинаться комментарий
+        self.comment_keywords = ['вероятно', 'коммент', 'комментар', 'примечан', 'note', 'замет', 'comment']
         
         # Настройка Google Sheets
         self._setup_google_sheets()
@@ -61,7 +63,14 @@ class SalesBot:
             if delim in text:
                 parts = text.split(delim, 1)
                 return parts[0].strip(), parts[1].strip()
-        # Если специальных разделителей нет — считаем, что комментария нет
+        # Если специальных разделителей нет — пробуем по ключевым словам комментария
+        lowered = text.lower()
+        keyword_positions = [lowered.find(' ' + kw) for kw in self.comment_keywords]
+        keyword_positions = [pos for pos in keyword_positions if pos > 0]
+        if keyword_positions:
+            split_pos = min(keyword_positions)
+            return text[:split_pos].strip(), text[split_pos:].strip()
+        # Если ничего не нашли — считаем, что комментария нет
         return text, ''
         
     def _setup_google_sheets(self):
