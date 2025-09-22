@@ -36,6 +36,7 @@ class SalesBot:
         except Exception as e:
             logger.warning(f"Не удалось снять webhook: {e}")
         self.sheets_id = config.GOOGLE_SHEETS_ID
+        logger.info(f"Google Sheets ID из конфига: {self.sheets_id}")
         self.sheet = None
         self.stats = {
             'total_usdt': 0,
@@ -270,7 +271,9 @@ class SalesBot:
             gc = gspread.authorize(creds)
             
             # Открываем таблицу
+            logger.info(f"Открываем Google Sheets с ID: {self.sheets_id}")
             self.sheet = gc.open_by_key(self.sheets_id).sheet1
+            logger.info(f"Успешно подключились к Google Sheets: {self.sheet.title}")
             
             # Создаем заголовки если их нет или если они неправильные
             first_row = self.sheet.get('A1:G1')
@@ -284,7 +287,8 @@ class SalesBot:
             logger.info("Google Sheets подключен успешно")
             
         except Exception as e:
-            logger.warning(f"Не удалось подключиться к Google Sheets: {e}")
+            logger.error(f"❌ Не удалось подключиться к Google Sheets: {e}")
+            logger.error(f"Проверьте: 1) GOOGLE_SHEETS_ID={self.sheets_id}, 2) credentials.json, 3) доступ к таблице")
             logger.warning("Бот будет работать в режиме симуляции - данные не будут записываться в таблицу")
             self.sheet = None
     
@@ -896,12 +900,13 @@ class SalesBot:
             if self.sheet:
                 # Получаем следующую пустую строку
                 next_row = len(self.sheet.get_all_values()) + 1
+                logger.info(f"Добавляем данные в строку {next_row} Google Sheets")
                 
                 # Добавляем данные с явным указанием типов
                 self.sheet.update(f'A{next_row}:J{next_row}', [row], value_input_option='USER_ENTERED')
-                logger.info(f"Данные добавлены в таблицу: {data}")
+                logger.info(f"✅ Данные успешно добавлены в Google Sheets: {data}")
             else:
-                logger.info(f"Данные записаны в режиме симуляции: {data}")
+                logger.warning(f"❌ Google Sheets не подключен! Данные записаны в режиме симуляции: {data}")
                 logger.info(f"Строка для Google Sheets: {row}")
             
         except Exception as e:
