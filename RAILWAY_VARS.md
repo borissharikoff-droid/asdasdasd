@@ -3,7 +3,7 @@
 Скопируйте эти переменные в Railway Dashboard → Variables:
 
 ```
-TELEGRAM_BOT_TOKEN=<your_telegram_bot_token>
+TELEGRAM_BOT_TOKEN=8361266417:AAGtg7botE6HqAb92nUKDV_iGD7-S0LViuY
 GOOGLE_SHEETS_ID=<your_google_sheet_id>
 CREDENTIALS_FILE=credentials.json
 CREDENTIALS_FOLDER=credentials
