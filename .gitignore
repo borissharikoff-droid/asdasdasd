@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environments
+.env
+.env.*
+
+# Credentials
+credentials/
+credentials.json
+*.pem
+*.p12
+
+# Logs
+*.log
+
+# OS/IDE
+.DS_Store
+.vscode/
+.idea/

@@ -20,10 +20,10 @@ git push -u origin main
 4. Выберите ваш репозиторий
 
 ### 3. Настройте переменные окружения
-В Railway Dashboard → Variables добавьте:
+В Railway Dashboard → Variables добавьте (значения подставьте свои):
 ```
-TELEGRAM_BOT_TOKEN=8361266417:AAEfwm_4kJHnLopUyH_sA3nArNcb42CcRpQ
-GOOGLE_SHEETS_ID=1KGi1sDNqFzSZwDJLa9zcCXAv6fwbyOmEF-34eZdQKXc
+TELEGRAM_BOT_TOKEN=<your_telegram_bot_token>
+GOOGLE_SHEETS_ID=<your_google_sheet_id>
 CREDENTIALS_FILE=credentials.json
 CREDENTIALS_FOLDER=credentials
 ```

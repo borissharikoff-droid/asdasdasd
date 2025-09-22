@@ -1,8 +1,14 @@
 import os
 
-# Конфигурация бота — значения берутся из переменных окружения (если заданы)
-TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "8361266417:AAEfwm_4kJHnLopUyH_sA3nArNcb42CcRpQ")
-GOOGLE_SHEETS_ID = os.getenv("GOOGLE_SHEETS_ID", "1KGi1sDNqFzSZwDJLa9zcCXAv6fwbyOmEF-34eZdQKXc")
+def _require_env(var_name: str) -> str:
+    value = os.getenv(var_name)
+    if not value:
+        raise RuntimeError(f"Environment variable {var_name} is required but not set")
+    return value
+
+# Конфигурация бота — значения берутся из переменных окружения (обязательные)
+TELEGRAM_BOT_TOKEN = _require_env("TELEGRAM_BOT_TOKEN")
+GOOGLE_SHEETS_ID = _require_env("GOOGLE_SHEETS_ID")
 
 # Пути к файлам
 CREDENTIALS_FILE = os.getenv("CREDENTIALS_FILE", "credentials.json")
