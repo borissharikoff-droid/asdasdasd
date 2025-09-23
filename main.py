@@ -5,11 +5,20 @@ import signal
 import sys
 from datetime import datetime
 from typing import Dict, List, Optional, Tuple
+from io import BytesIO
 
 import telebot
 from telebot import types
 import gspread
 from google.oauth2.service_account import Credentials
+
+# Рендеринг графиков без дисплея
+try:
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+except Exception:
+    plt = None
 
 import config
 
@@ -454,12 +463,64 @@ class SalesBot:
                 url=f"https://docs.google.com/spreadsheets/d/{self.sheets_id}"
             ))
             
-            self.bot.send_message(
-                message.chat.id,
-                money_text,
-                parse_mode='HTML',
-                reply_markup=keyboard
-            )
+            # Если доступен matplotlib — рендерим столбчатую диаграмму и отправляем как фото с подписью
+            if plt:
+                try:
+                    # Данные для графиков
+                    revenue_usdt = float(financial_data.get('revenue_usdt', 0) or 0)
+                    revenue_rub = float(financial_data.get('revenue_rub', 0) or 0)
+                    net_usdt = float(financial_data.get('net_usdt', 0) or 0)
+                    net_rub = float(financial_data.get('net_rub', 0) or 0)
+                    sbp = int(financial_data.get('sbp_count', 0) or 0)
+                    card = int(financial_data.get('card_count', 0) or 0)
+                    crypto = int(financial_data.get('crypto_count', 0) or 0)
+                    ip_cnt = int(financial_data.get('ip_count', 0) or 0)
+
+                    fig, axes = plt.subplots(1, 2, figsize=(10, 4))
+                    fig.tight_layout(pad=3.0)
+
+                    # Подграфик 1: Выручка/Чистыми
+                    axes[0].bar(['Rev USDT', 'Rev RUB', 'Net USDT', 'Net RUB'],
+                                 [revenue_usdt, revenue_rub, net_usdt, net_rub], color=['#4e79a7', '#f28e2b', '#59a14f', '#e15759'])
+                    axes[0].set_title('Выручка и чистая прибыль')
+                    axes[0].tick_params(axis='x', rotation=20)
+
+                    # Подграфик 2: Кол-во по типам оплаты
+                    axes[1].bar(['СБП', 'Карта', 'Крипта', 'ИП'], [sbp, card, crypto, ip_cnt], color='#76b7b2')
+                    axes[1].set_title('Количество по способам оплаты')
+                    axes[1].tick_params(axis='x', rotation=0)
+
+                    buf = BytesIO()
+                    fig.savefig(buf, format='png', dpi=180, bbox_inches='tight')
+                    plt.close(fig)
+                    buf.seek(0)
+
+                    # Отправляем как фото с подписью (caption)
+                    self.bot.send_photo(
+                        message.chat.id,
+                        buf,
+                        caption=money_text,
+                        parse_mode='HTML',
+                        reply_markup=keyboard
+                    )
+                    buf.close()
+                except Exception as e:
+                    logger.warning(f"Не удалось отрисовать диаграмму: {e}")
+                    # Фоллбек: просто текст если график не собрался
+                    self.bot.send_message(
+                        message.chat.id,
+                        money_text,
+                        parse_mode='HTML',
+                        reply_markup=keyboard
+                    )
+            else:
+                # Если matplotlib недоступен — отправляем текст
+                self.bot.send_message(
+                    message.chat.id,
+                    money_text,
+                    parse_mode='HTML',
+                    reply_markup=keyboard
+                )
             
         except Exception as e:
             logger.error(f"Ошибка получения финансовых данных: {e}")
