@@ -17,6 +17,7 @@ try:
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
+    from matplotlib.ticker import PercentFormatter
 except Exception:
     plt = None
 
@@ -463,32 +464,13 @@ class SalesBot:
                 url=f"https://docs.google.com/spreadsheets/d/{self.sheets_id}"
             ))
             
-            # Если доступен matplotlib — рендерим круговую диаграмму и отправляем как фото с подписью
+            # Если доступен matplotlib — рендерим сводный дэшборд 2x2 и отправляем как фото с подписью
             if plt:
                 try:
-                    # Данные для графиков
-                    revenue_usdt = float(financial_data.get('revenue_usdt', 0) or 0)
-                    revenue_rub = float(financial_data.get('revenue_rub', 0) or 0)
-                    net_usdt = float(financial_data.get('net_usdt', 0) or 0)
-                    net_rub = float(financial_data.get('net_rub', 0) or 0)
-                    sbp = int(financial_data.get('sbp_count', 0) or 0)
-                    card = int(financial_data.get('card_count', 0) or 0)
-                    crypto = int(financial_data.get('crypto_count', 0) or 0)
-                    ip_cnt = int(financial_data.get('ip_count', 0) or 0)
-
-                    # По умолчанию показываем распределение по способам оплаты
-                    labels = ['СБП', 'Карта', 'Крипта', 'ИП']
-                    sizes = [sbp, card, crypto, ip_cnt]
-
-                    # Если все нули, показываем распределение выручки по валютам
-                    if sum(sizes) == 0 and (revenue_usdt > 0 or revenue_rub > 0):
-                        labels = ['Выручка USDT', 'Выручка RUB']
-                        sizes = [revenue_usdt, revenue_rub]
-
-                    # Убираем нулевые сегменты, чтобы не было пустых подписей
-                    filtered = [(l, s) for l, s in zip(labels, sizes) if s > 0]
-                    if not filtered:
-                        # Совсем нет данных для диаграммы — отправляем только текст
+                    # Загружаем все строки из таблицы (A:J)
+                    all_values = self.sheet.get_all_values()
+                    if len(all_values) < 2:
+                        # Нет данных — отправляем текст
                         self.bot.send_message(
                             message.chat.id,
                             money_text,
@@ -497,11 +479,159 @@ class SalesBot:
                         )
                         return
 
-                    labels, sizes = zip(*filtered)
+                    header = all_values[0]
+                    rows = all_values[1:]
 
-                    fig = plt.figure(figsize=(6, 6))
-                    plt.pie(sizes, labels=labels, autopct='%1.1f%%', startangle=140)
-                    plt.title('Распределение')
+                    # Индексы колонок согласно записи бота A:J
+                    IDX_DATE = 1   # 'Дата' в формате dd.mm.YYYY
+                    IDX_TIME = 2   # 'Время' HH:MM
+                    IDX_AMOUNT = 3 # float
+                    IDX_CURRENCY = 4
+                    IDX_PAYMENT = 5
+                    IDX_CHANNEL = 8
+
+                    # Агрегации
+                    from collections import defaultdict, Counter
+                    # 1) Ежедневная выручка по валютам
+                    daily_usdt = defaultdict(float)
+                    daily_rub = defaultdict(float)
+                    # 2) Микс способов оплаты (кол-во)
+                    payment_counts = Counter()
+                    # 3) Теплокарта День×Час
+                    heat = [[0 for _ in range(24)] for _ in range(7)]  # 0=Mon ... 6=Sun
+                    # 4) Pareto каналов по выручке (общая сумма в RUB-эквиваленте? показываем раздельно, но для сортировки — сумма в своей валюте отдельно не сопоставима. Выберем просто по количеству строк)
+                    channel_revenue = defaultdict(float)
+
+                    # Функции парсинга
+                    def parse_float_safe(s: str) -> float:
+                        try:
+                            return float(str(s).replace(' ', '').replace('\xa0', '').replace('₽', '').replace(',', ''))
+                        except Exception:
+                            return 0.0
+
+                    def parse_hour_safe(t: str) -> int:
+                        t = (t or '').strip()
+                        if not t:
+                            return 0
+                        if ':' not in t:
+                            if len(t) == 4:
+                                t = f"{t[:2]}:{t[2:]}"
+                            elif len(t) == 3:
+                                t = f"0{t[0]}:{t[1:]}"
+                        try:
+                            return int(t.split(':')[0])
+                        except Exception:
+                            return 0
+
+                    def parse_dow(date_str: str) -> int:
+                        # ожидаем dd.mm.YYYY
+                        try:
+                            day, month, year = date_str.split('.')
+                            dt = datetime(int(year), int(month), int(day))
+                            return dt.weekday()  # 0-6
+                        except Exception:
+                            return 0
+
+                    for r in rows:
+                        try:
+                            date_str = r[IDX_DATE] if len(r) > IDX_DATE else ''
+                            time_str = r[IDX_TIME] if len(r) > IDX_TIME else ''
+                            amount = parse_float_safe(r[IDX_AMOUNT] if len(r) > IDX_AMOUNT else '')
+                            currency = (r[IDX_CURRENCY] if len(r) > IDX_CURRENCY else '').strip().upper()
+                            payment = (r[IDX_PAYMENT] if len(r) > IDX_PAYMENT else '').strip()
+                            channel = (r[IDX_CHANNEL] if len(r) > IDX_CHANNEL else '').strip()
+
+                            if amount <= 0 or not date_str:
+                                continue
+
+                            # 1) daily by currency
+                            if currency == 'USDT':
+                                daily_usdt[date_str] += amount
+                            elif currency == 'RUB':
+                                daily_rub[date_str] += amount
+
+                            # 2) payment mix
+                            payment_key = payment if payment else 'Не указан'
+                            payment_counts[payment_key] += 1
+
+                            # 3) heatmap
+                            dow = parse_dow(date_str)
+                            hour = parse_hour_safe(time_str)
+                            if 0 <= dow <= 6 and 0 <= hour <= 23:
+                                heat[dow][hour] += 1
+
+                            # 4) channel pareto (по сумме без конвертации)
+                            channel_revenue[channel or '—'] += amount
+                        except Exception as parse_e:
+                            logger.debug(f"skip row due to parse error: {parse_e}")
+
+                    # Подготовка фигур
+                    fig, axes = plt.subplots(2, 2, figsize=(12, 8))
+                    fig.suptitle('Сводная аналитика', fontsize=14)
+                    plt.subplots_adjust(hspace=0.35, wspace=0.25)
+
+                    # A) Ежедневная выручка по валютам (stacked bars)
+                    dates_sorted = sorted(set(list(daily_usdt.keys()) + list(daily_rub.keys())), key=lambda d: datetime.strptime(d, '%d.%m.%Y'))
+                    usdt_vals = [daily_usdt.get(d, 0) for d in dates_sorted]
+                    rub_vals = [daily_rub.get(d, 0) for d in dates_sorted]
+                    x = range(len(dates_sorted))
+                    axes[0,0].bar(x, rub_vals, label='RUB', color='#f28e2b')
+                    axes[0,0].bar(x, usdt_vals, bottom=rub_vals, label='USDT', color='#4e79a7')
+                    axes[0,0].set_title('Выручка по дням (RUB+USDT)')
+                    axes[0,0].set_xticks(list(x))
+                    axes[0,0].set_xticklabels([d[:-5] for d in dates_sorted], rotation=30)
+                    axes[0,0].legend()
+
+                    # B) Микс способов оплаты (pie)
+                    # Оставим топ-6, остальные в "Прочее"
+                    most_common = payment_counts.most_common()
+                    labels_b = []
+                    sizes_b = []
+                    other = 0
+                    for i, (k, v) in enumerate(most_common):
+                        if i < 6:
+                            labels_b.append(k or '—')
+                            sizes_b.append(v)
+                        else:
+                            other += v
+                    if other > 0:
+                        labels_b.append('Прочее')
+                        sizes_b.append(other)
+                    if sizes_b:
+                        axes[0,1].pie(sizes_b, labels=labels_b, autopct='%1.0f%%', startangle=140)
+                    axes[0,1].set_title('Способы оплаты (доли)')
+
+                    # C) Теплокарта активностей (День×Час)
+                    im = axes[1,0].imshow(heat, aspect='auto', cmap='YlOrRd')
+                    axes[1,0].set_title('Активность: дни×часы')
+                    axes[1,0].set_yticks(range(7))
+                    axes[1,0].set_yticklabels(['Пн','Вт','Ср','Чт','Пт','Сб','Вс'])
+                    axes[1,0].set_xticks([0,4,8,12,16,20,23])
+                    axes[1,0].set_xticklabels(['0','4','8','12','16','20','23'])
+                    fig.colorbar(im, ax=axes[1,0], fraction=0.046, pad=0.04)
+
+                    # D) Pareto каналов: бары + кумулятив
+                    top_items = sorted(channel_revenue.items(), key=lambda kv: kv[1], reverse=True)[:10]
+                    labels_d = [k if k else '—' for k,_ in top_items]
+                    vals_d = [v for _,v in top_items]
+                    if vals_d:
+                        x2 = range(len(vals_d))
+                        bars = axes[1,1].bar(x2, vals_d, color='#59a14f')
+                        axes[1,1].set_title('Топ-каналы (Pareto)')
+                        axes[1,1].set_xticks(list(x2))
+                        axes[1,1].set_xticklabels(labels_d, rotation=30, ha='right')
+                        # Кумулятивная линия от 0 до 100%
+                        total = sum(vals_d)
+                        cum = []
+                        s = 0
+                        for v in vals_d:
+                            s += v
+                            cum.append(s / total if total > 0 else 0)
+                        ax2 = axes[1,1].twinx()
+                        ax2.plot(list(x2), [c*100 for c in cum], color='#e15759', marker='o')
+                        ax2.yaxis.set_major_formatter(PercentFormatter())
+                        ax2.set_ylim(0, 105)
+                        ax2.grid(False)
 
                     buf = BytesIO()
                     fig.savefig(buf, format='png', dpi=180, bbox_inches='tight')
