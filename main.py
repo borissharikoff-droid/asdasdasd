@@ -463,7 +463,7 @@ class SalesBot:
                 url=f"https://docs.google.com/spreadsheets/d/{self.sheets_id}"
             ))
             
-            # Если доступен matplotlib — рендерим столбчатую диаграмму и отправляем как фото с подписью
+            # Если доступен matplotlib — рендерим круговую диаграмму и отправляем как фото с подписью
             if plt:
                 try:
                     # Данные для графиков
@@ -476,19 +476,32 @@ class SalesBot:
                     crypto = int(financial_data.get('crypto_count', 0) or 0)
                     ip_cnt = int(financial_data.get('ip_count', 0) or 0)
 
-                    fig, axes = plt.subplots(1, 2, figsize=(10, 4))
-                    fig.tight_layout(pad=3.0)
+                    # По умолчанию показываем распределение по способам оплаты
+                    labels = ['СБП', 'Карта', 'Крипта', 'ИП']
+                    sizes = [sbp, card, crypto, ip_cnt]
 
-                    # Подграфик 1: Выручка/Чистыми
-                    axes[0].bar(['Rev USDT', 'Rev RUB', 'Net USDT', 'Net RUB'],
-                                 [revenue_usdt, revenue_rub, net_usdt, net_rub], color=['#4e79a7', '#f28e2b', '#59a14f', '#e15759'])
-                    axes[0].set_title('Выручка и чистая прибыль')
-                    axes[0].tick_params(axis='x', rotation=20)
+                    # Если все нули, показываем распределение выручки по валютам
+                    if sum(sizes) == 0 and (revenue_usdt > 0 or revenue_rub > 0):
+                        labels = ['Выручка USDT', 'Выручка RUB']
+                        sizes = [revenue_usdt, revenue_rub]
 
-                    # Подграфик 2: Кол-во по типам оплаты
-                    axes[1].bar(['СБП', 'Карта', 'Крипта', 'ИП'], [sbp, card, crypto, ip_cnt], color='#76b7b2')
-                    axes[1].set_title('Количество по способам оплаты')
-                    axes[1].tick_params(axis='x', rotation=0)
+                    # Убираем нулевые сегменты, чтобы не было пустых подписей
+                    filtered = [(l, s) for l, s in zip(labels, sizes) if s > 0]
+                    if not filtered:
+                        # Совсем нет данных для диаграммы — отправляем только текст
+                        self.bot.send_message(
+                            message.chat.id,
+                            money_text,
+                            parse_mode='HTML',
+                            reply_markup=keyboard
+                        )
+                        return
+
+                    labels, sizes = zip(*filtered)
+
+                    fig = plt.figure(figsize=(6, 6))
+                    plt.pie(sizes, labels=labels, autopct='%1.1f%%', startangle=140)
+                    plt.title('Распределение')
 
                     buf = BytesIO()
                     fig.savefig(buf, format='png', dpi=180, bbox_inches='tight')
