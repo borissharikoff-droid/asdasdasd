@@ -570,36 +570,21 @@ class SalesBot:
                     fig.suptitle('Сводная аналитика', fontsize=14)
                     plt.subplots_adjust(hspace=0.35, wspace=0.25)
 
-                    # A) Ежедневная выручка по валютам (stacked bars)
+                    # A) Ежедневная выручка RUB (отдельная диаграмма)
                     dates_sorted = sorted(set(list(daily_usdt.keys()) + list(daily_rub.keys())), key=lambda d: datetime.strptime(d, '%d.%m.%Y'))
                     usdt_vals = [daily_usdt.get(d, 0) for d in dates_sorted]
                     rub_vals = [daily_rub.get(d, 0) for d in dates_sorted]
                     x = range(len(dates_sorted))
-                    axes[0,0].bar(x, rub_vals, label='RUB', color='#f28e2b')
-                    axes[0,0].bar(x, usdt_vals, bottom=rub_vals, label='USDT', color='#4e79a7')
-                    axes[0,0].set_title('Выручка по дням (RUB+USDT)')
+                    axes[0,0].bar(x, rub_vals, color='#f28e2b')
+                    axes[0,0].set_title('Выручка по дням (RUB)')
                     axes[0,0].set_xticks(list(x))
                     axes[0,0].set_xticklabels([d[:-5] for d in dates_sorted], rotation=30)
-                    axes[0,0].legend()
 
-                    # B) Микс способов оплаты (pie)
-                    # Оставим топ-6, остальные в "Прочее"
-                    most_common = payment_counts.most_common()
-                    labels_b = []
-                    sizes_b = []
-                    other = 0
-                    for i, (k, v) in enumerate(most_common):
-                        if i < 6:
-                            labels_b.append(k or '—')
-                            sizes_b.append(v)
-                        else:
-                            other += v
-                    if other > 0:
-                        labels_b.append('Прочее')
-                        sizes_b.append(other)
-                    if sizes_b:
-                        axes[0,1].pie(sizes_b, labels=labels_b, autopct='%1.0f%%', startangle=140)
-                    axes[0,1].set_title('Способы оплаты (доли)')
+                    # B) Ежедневная выручка USDT (отдельная диаграмма)
+                    axes[0,1].bar(x, usdt_vals, color='#4e79a7')
+                    axes[0,1].set_title('Выручка по дням (USDT)')
+                    axes[0,1].set_xticks(list(x))
+                    axes[0,1].set_xticklabels([d[:-5] for d in dates_sorted], rotation=30)
 
                     # C) Теплокарта активностей (День×Час)
                     im = axes[1,0].imshow(heat, aspect='auto', cmap='YlOrRd')
@@ -610,14 +595,14 @@ class SalesBot:
                     axes[1,0].set_xticklabels(['0','4','8','12','16','20','23'])
                     fig.colorbar(im, ax=axes[1,0], fraction=0.046, pad=0.04)
 
-                    # D) Pareto каналов: бары + кумулятив
+                    # D) Топ-каналы: бары + кумулятив
                     top_items = sorted(channel_revenue.items(), key=lambda kv: kv[1], reverse=True)[:10]
                     labels_d = [k if k else '—' for k,_ in top_items]
                     vals_d = [v for _,v in top_items]
                     if vals_d:
                         x2 = range(len(vals_d))
                         bars = axes[1,1].bar(x2, vals_d, color='#59a14f')
-                        axes[1,1].set_title('Топ-каналы (Pareto)')
+                        axes[1,1].set_title('Топ-каналы')
                         axes[1,1].set_xticks(list(x2))
                         axes[1,1].set_xticklabels(labels_d, rotation=30, ha='right')
                         # Кумулятивная линия от 0 до 100%
