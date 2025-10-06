@@ -280,10 +280,11 @@ class SalesBot:
             creds = Credentials.from_service_account_info(creds_data, scopes=config.SHEET_SCOPE)
             gc = gspread.authorize(creds)
             
-            # Открываем таблицу
+            # Открываем таблицу и выбираем/создаем вкладку "Октябрь"
             logger.info(f"Открываем Google Sheets с ID: {self.sheets_id}")
-            self.sheet = gc.open_by_key(self.sheets_id).sheet1
-            logger.info(f"Успешно подключились к Google Sheets: {self.sheet.title}")
+            spreadsheet = gc.open_by_key(self.sheets_id)
+            self.spreadsheet = spreadsheet
+            self.sheet = self._ensure_october_sheet(self.spreadsheet)
             
             # Создаем заголовки если их нет или если они неправильные
             first_row = self.sheet.get('A1:G1')
@@ -328,6 +329,46 @@ class SalesBot:
         @self.bot.message_handler(func=lambda message: True)
         def handle_message(message):
             self._handle_sales_message(message)
+
+    def _ensure_october_sheet(self, spreadsheet):
+        """Гарантирует наличие и возврат листа 'Октябрь'"""
+        try:
+            sheet = spreadsheet.worksheet('Октябрь')
+            return sheet
+        except gspread.WorksheetNotFound:
+            logger.info("Вкладка 'Октябрь' не найдена. Создаем новую вкладку...")
+            sheet = spreadsheet.add_worksheet(title='Октябрь', rows=1000, cols=10)
+            return sheet
+
+    def _init_sheets(self):
+        """Инициализирует self.sheet для листа 'Октябрь' если не инициализировано или потеряно"""
+        try:
+            import json
+            creds_env = os.getenv('GOOGLE_CREDENTIALS_JSON')
+            if creds_env:
+                try:
+                    creds_data = json.loads(creds_env)
+                except json.JSONDecodeError:
+                    creds_data = json.loads(creds_env.replace('\\n', '\n'))
+            else:
+                creds_file = config.CREDENTIALS_FILE
+                if not os.path.exists(creds_file):
+                    creds_file = os.path.join(config.CREDENTIALS_FOLDER, 'credentials.json')
+                if not os.path.exists(creds_file):
+                    logger.info("credentials.json не найден — пропускаем повторную инициализацию")
+                    return
+                with open(creds_file, 'r', encoding='utf-8') as f:
+                    creds_data = json.load(f)
+            # нормализуем ключ и создаем клиента
+            if isinstance(creds_data.get('private_key'), str):
+                creds_data['private_key'] = creds_data['private_key'].replace('\\n', '\n')
+            creds = Credentials.from_service_account_info(creds_data, scopes=config.SHEET_SCOPE)
+            gc = gspread.authorize(creds)
+            spreadsheet = gc.open_by_key(self.sheets_id)
+            self.spreadsheet = spreadsheet
+            self.sheet = self._ensure_october_sheet(self.spreadsheet)
+        except Exception as e:
+            logger.warning(f"_init_sheets: не удалось переинициализировать Google Sheets: {e}")
     
     def _handle_start(self, message):
         """Обработчик команды /start"""
@@ -1086,6 +1127,13 @@ class SalesBot:
                 str(data.get('comment', '')).strip()  # Комментарий
             ]
             
+            # На всякий случай каждый раз убеждаемся, что используем именно вкладку 'Октябрь'
+            if hasattr(self, 'spreadsheet') and self.spreadsheet:
+                try:
+                    self.sheet = self._ensure_october_sheet(self.spreadsheet)
+                except Exception as e:
+                    logger.warning(f"Не удалось переутвердить лист 'Октябрь' перед записью: {e}")
+
             if self.sheet:
                 # Получаем следующую пустую строку
                 next_row = len(self.sheet.get_all_values()) + 1
