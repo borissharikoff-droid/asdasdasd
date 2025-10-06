@@ -321,6 +321,16 @@ class SalesBot:
         @self.bot.message_handler(commands=['money'])
         def money_command(message):
             self._handle_money(message)
+
+        @self.bot.callback_query_handler(func=lambda call: call.data.startswith('money_month:'))
+        def money_month_callback(call):
+            try:
+                month_title = call.data.split(':', 1)[1]
+                self._handle_money(call.message, month_title_override=month_title)
+                self.bot.answer_callback_query(call.id)
+            except Exception as e:
+                logger.error(f"Ошибка обработки выбора месяца: {e}")
+                self.bot.answer_callback_query(call.id, text="Ошибка")
         
         @self.bot.message_handler(commands=['debug'])
         def debug_command(message):
@@ -459,14 +469,38 @@ class SalesBot:
             parse_mode='HTML'
         )
     
-    def _handle_money(self, message):
+    def _handle_money(self, message, month_title_override: Optional[str] = None):
         """Обработчик команды /money - финансовая статистика из таблицы"""
         try:
             if not self.sheet:
                 self._init_sheets()
             
-            # Получаем финансовые данные из таблицы
-            financial_data = self._get_financial_data()
+            # Выбор листа: по умолчанию 'Октябрь' или по клику пользователя
+            target_title = month_title_override or 'Октябрь'
+            if hasattr(self, 'spreadsheet') and self.spreadsheet:
+                try:
+                    target_sheet = self.spreadsheet.worksheet(target_title)
+                except gspread.WorksheetNotFound:
+                    target_sheet = None
+            else:
+                target_sheet = None
+            
+            # Если нет нужного листа — показываем выбор доступных
+            if not target_sheet and hasattr(self, 'spreadsheet') and self.spreadsheet:
+                months = [ws.title for ws in self.spreadsheet.worksheets()]
+                keyboard = types.InlineKeyboardMarkup()
+                # первые 12
+                for title in months[:12]:
+                    keyboard.add(types.InlineKeyboardButton(title, callback_data=f"money_month:{title}"))
+                self.bot.send_message(
+                    message.chat.id,
+                    "Выберите лист (месяц) для статистики:",
+                    reply_markup=keyboard
+                )
+                return
+
+            # Получаем финансовые данные из выбранного листа
+            financial_data = self._get_financial_data(target_sheet)
             
             if not financial_data:
                 self.bot.send_message(
@@ -479,6 +513,8 @@ class SalesBot:
             # Формируем сообщение
             money_text = f"""
 💰 <b>Финансовая статистика</b>
+
+📄 <b>Лист:</b> {target_title}
 
 💵 <b>Выручка:</b>
 • USDT: {financial_data.get('revenue_usdt', 0):.2f}
@@ -499,17 +535,29 @@ class SalesBot:
 • ИП: {financial_data.get('ip_count', 0)}
             """
             
+            # Клавиатура: открыть таблицу + выбрать месяц
             keyboard = types.InlineKeyboardMarkup()
             keyboard.add(types.InlineKeyboardButton(
                 "📊 Открыть таблицу", 
                 url=f"https://docs.google.com/spreadsheets/d/{self.sheets_id}"
             ))
+            if hasattr(self, 'spreadsheet') and self.spreadsheet:
+                months = [ws.title for ws in self.spreadsheet.worksheets()]
+                # compact rows of buttons
+                row = []
+                for title in months[:12]:
+                    row.append(types.InlineKeyboardButton(title, callback_data=f"money_month:{title}"))
+                    if len(row) == 3:
+                        keyboard.row(*row)
+                        row = []
+                if row:
+                    keyboard.row(*row)
             
             # Если доступен matplotlib — рендерим сводный дэшборд 2x2 и отправляем как фото с подписью
             if plt:
                 try:
-                    # Загружаем все строки из таблицы (A:J)
-                    all_values = self.sheet.get_all_values()
+                    # Загружаем все строки из выбранного листа (A:J)
+                    all_values = target_sheet.get_all_values()
                     if len(all_values) < 2:
                         # Нет данных — отправляем текст
                         self.bot.send_message(
@@ -699,14 +747,14 @@ class SalesBot:
                 parse_mode='HTML'
             )
     
-    def _get_financial_data(self) -> Dict:
-        """Получение финансовых данных из таблицы"""
+    def _get_financial_data(self, sheet) -> Dict:
+        """Получение финансовых данных из указанного листа таблицы"""
         try:
-            if not self.sheet:
+            if not sheet:
                 return {}
             
             # Получаем все данные из таблицы
-            all_values = self.sheet.get_all_values()
+            all_values = sheet.get_all_values()
             
             if len(all_values) < 2:  # Только заголовки
                 return {}
