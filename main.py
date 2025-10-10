@@ -527,15 +527,27 @@ class SalesBot:
 • USDT: {financial_data.get('net_usdt', 0):.2f}
 • RUB: {financial_data.get('net_rub', 0):,.0f}
 
-💼 <b>Комиссия сейлза:</b>
-• USDT: {financial_data.get('commission_usdt', 0):.2f}
-• RUB: {financial_data.get('commission_rub', 0):,.0f}
+💼 <b>Комиссии по сейлзам:</b>
+
+👨‍💼 <b>Дима (5%):</b>
+• USDT: {financial_data.get('dima_commission_usdt', 0):.2f}
+• RUB: {financial_data.get('dima_commission_rub', 0):,.0f}
+
+👩‍💼 <b>Алина (15%):</b>
+• USDT: {financial_data.get('alina_commission_usdt', 0):.2f}
+• RUB: {financial_data.get('alina_commission_rub', 0):,.0f}
+
+👩‍💼 <b>Ксения (10%):</b>
+• USDT: {financial_data.get('ksenia_commission_usdt', 0):.2f}
+• RUB: {financial_data.get('ksenia_commission_rub', 0):,.0f}
+
+👨‍💼 <b>Роман (10%):</b>
+• USDT: {financial_data.get('roman_commission_usdt', 0):.2f}
+• RUB: {financial_data.get('roman_commission_rub', 0):,.0f}
 
 💳 <b>По типам оплаты:</b>
 • СБП: {financial_data.get('sbp_count', 0)}
 • Карта: {financial_data.get('card_count', 0)}
-• Крипта: {financial_data.get('crypto_count', 0)}
-• ИП: {financial_data.get('ip_count', 0)}
             """
             
             # Клавиатура: открыть таблицу + выбрать месяц
@@ -768,12 +780,17 @@ class SalesBot:
                 'revenue_rub': 0,
                 'net_usdt': 0,
                 'net_rub': 0,
-                'commission_usdt': 0,
-                'commission_rub': 0,
                 'sbp_count': 0,
                 'card_count': 0,
-                'crypto_count': 0,
-                'ip_count': 0
+                # Комиссии по сейлзам
+                'dima_commission_usdt': 0,
+                'dima_commission_rub': 0,
+                'alina_commission_usdt': 0,
+                'alina_commission_rub': 0,
+                'ksenia_commission_usdt': 0,
+                'ksenia_commission_rub': 0,
+                'roman_commission_usdt': 0,
+                'roman_commission_rub': 0
             }
             
             # Добавляем отладочное логирование
@@ -815,45 +832,71 @@ class SalesBot:
                             except (ValueError, IndexError) as e:
                                 logger.warning(f"Ошибка парсинга чистых: {e}, значение: {row[13]}")
                         
-                        # Комиссия сейлза (колонка O, индекс 14)
+                        # Комиссии по сейлзам (колонки O, P, Q, R - индексы 14, 15, 16, 17)
+                        # Дима (колонка O, индекс 14)
                         if len(row) > 14 and row[14]:
                             try:
                                 commission_str = row[14].replace(',', '').replace(' ', '').replace('\xa0', '').replace('₽', '')
                                 commission = float(commission_str)
                                 if currency == 'USDT':
-                                    financial_data['commission_usdt'] = commission
+                                    financial_data['dima_commission_usdt'] = commission
                                 elif currency == 'RUB':
-                                    financial_data['commission_rub'] = commission
-                                logger.info(f"Комиссия {currency}: {commission}")
+                                    financial_data['dima_commission_rub'] = commission
+                                logger.info(f"Комиссия Димы {currency}: {commission}")
                             except (ValueError, IndexError) as e:
-                                logger.warning(f"Ошибка парсинга комиссии: {e}, значение: {row[14]}")
+                                logger.warning(f"Ошибка парсинга комиссии Димы: {e}, значение: {row[14]}")
                         
-                        # Счетчики по типам оплаты (колонки P, Q, R, S - индексы 15, 16, 17, 18)
-                        if len(row) > 15 and row[15]:  # СБП
+                        # Алина (колонка P, индекс 15)
+                        if len(row) > 15 and row[15]:
                             try:
-                                financial_data['sbp_count'] = int(row[15])
-                                logger.info(f"СБП: {row[15]}")
+                                commission_str = row[15].replace(',', '').replace(' ', '').replace('\xa0', '').replace('₽', '')
+                                commission = float(commission_str)
+                                if currency == 'USDT':
+                                    financial_data['alina_commission_usdt'] = commission
+                                elif currency == 'RUB':
+                                    financial_data['alina_commission_rub'] = commission
+                                logger.info(f"Комиссия Алины {currency}: {commission}")
+                            except (ValueError, IndexError) as e:
+                                logger.warning(f"Ошибка парсинга комиссии Алины: {e}, значение: {row[15]}")
+                        
+                        # Ксения (колонка Q, индекс 16)
+                        if len(row) > 16 and row[16]:
+                            try:
+                                commission_str = row[16].replace(',', '').replace(' ', '').replace('\xa0', '').replace('₽', '')
+                                commission = float(commission_str)
+                                if currency == 'USDT':
+                                    financial_data['ksenia_commission_usdt'] = commission
+                                elif currency == 'RUB':
+                                    financial_data['ksenia_commission_rub'] = commission
+                                logger.info(f"Комиссия Ксении {currency}: {commission}")
+                            except (ValueError, IndexError) as e:
+                                logger.warning(f"Ошибка парсинга комиссии Ксении: {e}, значение: {row[16]}")
+                        
+                        # Роман (колонка R, индекс 17)
+                        if len(row) > 17 and row[17]:
+                            try:
+                                commission_str = row[17].replace(',', '').replace(' ', '').replace('\xa0', '').replace('₽', '')
+                                commission = float(commission_str)
+                                if currency == 'USDT':
+                                    financial_data['roman_commission_usdt'] = commission
+                                elif currency == 'RUB':
+                                    financial_data['roman_commission_rub'] = commission
+                                logger.info(f"Комиссия Романа {currency}: {commission}")
+                            except (ValueError, IndexError) as e:
+                                logger.warning(f"Ошибка парсинга комиссии Романа: {e}, значение: {row[17]}")
+                        
+                        # Счетчики по типам оплаты (колонки S, T - индексы 18, 19)
+                        if len(row) > 18 and row[18]:  # СБП
+                            try:
+                                financial_data['sbp_count'] = int(row[18])
+                                logger.info(f"СБП: {row[18]}")
                             except (ValueError, IndexError):
                                 pass
                         
-                        if len(row) > 16 and row[16]:  # Карта
+                        if len(row) > 19 and row[19]:  # Карта
                             try:
-                                financial_data['card_count'] = int(row[16])
-                                logger.info(f"Карта: {row[16]}")
-                            except (ValueError, IndexError):
-                                pass
-                        
-                        if len(row) > 17 and row[17]:  # Крипта
-                            try:
-                                financial_data['crypto_count'] = int(row[17])
-                                logger.info(f"Крипта: {row[17]}")
-                            except (ValueError, IndexError):
-                                pass
-                        
-                        if len(row) > 18 and row[18]:  # ИП
-                            try:
-                                financial_data['ip_count'] = int(row[18])
-                                logger.info(f"ИП: {row[18]}")
+                                financial_data['card_count'] = int(row[19])
+                                logger.info(f"Карта: {row[19]}")
                             except (ValueError, IndexError):
                                 pass
             
