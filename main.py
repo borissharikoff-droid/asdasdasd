@@ -805,6 +805,9 @@ class SalesBot:
                     if len(row) > 11 and row[11] in ['USDT', 'RUB']:
                         currency = row[11]
                         logger.info(f"Найдена валюта {currency} в строке {i}")
+                        logger.info(f"Полная строка: {row}")
+                        logger.info(f"Колонка O (индекс 14): '{row[14] if len(row) > 14 else 'НЕТ'}'")
+                        logger.info(f"Колонка Q (индекс 16): '{row[16] if len(row) > 16 else 'НЕТ'}'")
                         
                         # Выручка (колонка M, индекс 12)
                         if len(row) > 12 and row[12]:
@@ -836,13 +839,14 @@ class SalesBot:
                         # Дима (колонка O, индекс 14)
                         if len(row) > 14 and row[14]:
                             try:
+                                original_value = row[14]
                                 commission_str = row[14].replace(' ', '').replace('\xa0', '').replace('₽', '').replace(',', '.')
                                 commission = float(commission_str)
                                 if currency == 'USDT':
                                     financial_data['dima_commission_usdt'] = commission
                                 elif currency == 'RUB':
                                     financial_data['dima_commission_rub'] = commission
-                                logger.info(f"Комиссия Димы {currency}: {commission}")
+                                logger.info(f"Комиссия Димы {currency}: исходное='{original_value}', обработанное='{commission_str}', результат={commission}")
                             except (ValueError, IndexError) as e:
                                 logger.warning(f"Ошибка парсинга комиссии Димы: {e}, значение: {row[14]}")
                         
@@ -862,13 +866,14 @@ class SalesBot:
                         # Ксения (колонка Q, индекс 16)
                         if len(row) > 16 and row[16]:
                             try:
+                                original_value = row[16]
                                 commission_str = row[16].replace(' ', '').replace('\xa0', '').replace('₽', '').replace(',', '.')
                                 commission = float(commission_str)
                                 if currency == 'USDT':
                                     financial_data['ksenia_commission_usdt'] = commission
                                 elif currency == 'RUB':
                                     financial_data['ksenia_commission_rub'] = commission
-                                logger.info(f"Комиссия Ксении {currency}: {commission}")
+                                logger.info(f"Комиссия Ксении {currency}: исходное='{original_value}', обработанное='{commission_str}', результат={commission}")
                             except (ValueError, IndexError) as e:
                                 logger.warning(f"Ошибка парсинга комиссии Ксении: {e}, значение: {row[16]}")
                         
