@@ -809,7 +809,7 @@ class SalesBot:
                         # Выручка (колонка M, индекс 12)
                         if len(row) > 12 and row[12]:
                             try:
-                                revenue_str = row[12].replace(',', '').replace(' ', '').replace('\xa0', '').replace('₽', '')
+                                revenue_str = row[12].replace(' ', '').replace('\xa0', '').replace('₽', '').replace(',', '.')
                                 revenue = float(revenue_str)
                                 if currency == 'USDT':
                                     financial_data['revenue_usdt'] = revenue
@@ -822,7 +822,7 @@ class SalesBot:
                         # Чистыми заработано (колонка N, индекс 13)
                         if len(row) > 13 and row[13]:
                             try:
-                                net_str = row[13].replace(',', '').replace(' ', '').replace('\xa0', '').replace('₽', '')
+                                net_str = row[13].replace(' ', '').replace('\xa0', '').replace('₽', '').replace(',', '.')
                                 net = float(net_str)
                                 if currency == 'USDT':
                                     financial_data['net_usdt'] = net
@@ -836,7 +836,7 @@ class SalesBot:
                         # Дима (колонка O, индекс 14)
                         if len(row) > 14 and row[14]:
                             try:
-                                commission_str = row[14].replace(',', '').replace(' ', '').replace('\xa0', '').replace('₽', '')
+                                commission_str = row[14].replace(' ', '').replace('\xa0', '').replace('₽', '').replace(',', '.')
                                 commission = float(commission_str)
                                 if currency == 'USDT':
                                     financial_data['dima_commission_usdt'] = commission
@@ -849,7 +849,7 @@ class SalesBot:
                         # Алина (колонка P, индекс 15)
                         if len(row) > 15 and row[15]:
                             try:
-                                commission_str = row[15].replace(',', '').replace(' ', '').replace('\xa0', '').replace('₽', '')
+                                commission_str = row[15].replace(' ', '').replace('\xa0', '').replace('₽', '').replace(',', '.')
                                 commission = float(commission_str)
                                 if currency == 'USDT':
                                     financial_data['alina_commission_usdt'] = commission
@@ -862,7 +862,7 @@ class SalesBot:
                         # Ксения (колонка Q, индекс 16)
                         if len(row) > 16 and row[16]:
                             try:
-                                commission_str = row[16].replace(',', '').replace(' ', '').replace('\xa0', '').replace('₽', '')
+                                commission_str = row[16].replace(' ', '').replace('\xa0', '').replace('₽', '').replace(',', '.')
                                 commission = float(commission_str)
                                 if currency == 'USDT':
                                     financial_data['ksenia_commission_usdt'] = commission
@@ -875,7 +875,7 @@ class SalesBot:
                         # Роман (колонка R, индекс 17)
                         if len(row) > 17 and row[17]:
                             try:
-                                commission_str = row[17].replace(',', '').replace(' ', '').replace('\xa0', '').replace('₽', '')
+                                commission_str = row[17].replace(' ', '').replace('\xa0', '').replace('₽', '').replace(',', '.')
                                 commission = float(commission_str)
                                 if currency == 'USDT':
                                     financial_data['roman_commission_usdt'] = commission
