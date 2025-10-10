@@ -548,6 +548,8 @@ class SalesBot:
 💳 <b>По типам оплаты:</b>
 • СБП: {financial_data.get('sbp_count', 0)}
 • Карта: {financial_data.get('card_count', 0)}
+• Крипта: {financial_data.get('crypto_count', 0)}
+• ИП: {financial_data.get('ip_count', 0)}
             """
             
             # Клавиатура: открыть таблицу + выбрать месяц
@@ -782,6 +784,8 @@ class SalesBot:
                 'net_rub': 0,
                 'sbp_count': 0,
                 'card_count': 0,
+                'crypto_count': 0,
+                'ip_count': 0,
                 # Комиссии по сейлзам
                 'dima_commission_usdt': 0,
                 'dima_commission_rub': 0,
@@ -800,7 +804,7 @@ class SalesBot:
             for i, row in enumerate(all_values):
                 logger.info(f"Строка {i}: {row}")
                 
-                if len(row) >= 19:  # Проверяем, что строка достаточно длинная
+                if len(row) >= 22:  # Проверяем, что строка достаточно длинная (до колонки V)
                     # Ищем строки с валютами USDT и RUB в колонке L (индекс 11)
                     if len(row) > 11 and row[11] in ['USDT', 'RUB']:
                         currency = row[11]
@@ -890,7 +894,7 @@ class SalesBot:
                             except (ValueError, IndexError) as e:
                                 logger.warning(f"Ошибка парсинга комиссии Романа: {e}, значение: {row[17]}")
                         
-                        # Счетчики по типам оплаты (колонки S, T - индексы 18, 19)
+                        # Счетчики по типам оплаты (колонки S, T, U, V - индексы 18, 19, 20, 21)
                         if len(row) > 18 and row[18]:  # СБП
                             try:
                                 financial_data['sbp_count'] = int(row[18])
@@ -902,6 +906,20 @@ class SalesBot:
                             try:
                                 financial_data['card_count'] = int(row[19])
                                 logger.info(f"Карта: {row[19]}")
+                            except (ValueError, IndexError):
+                                pass
+                        
+                        if len(row) > 20 and row[20]:  # Крипта
+                            try:
+                                financial_data['crypto_count'] = int(row[20])
+                                logger.info(f"Крипта: {row[20]}")
+                            except (ValueError, IndexError):
+                                pass
+                        
+                        if len(row) > 21 and row[21]:  # ИП
+                            try:
+                                financial_data['ip_count'] = int(row[21])
+                                logger.info(f"ИП: {row[21]}")
                             except (ValueError, IndexError):
                                 pass
             
