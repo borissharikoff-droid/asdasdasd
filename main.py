@@ -522,10 +522,12 @@ class SalesBot:
 💵 <b>Выручка:</b>
 • USDT: {financial_data.get('revenue_usdt', 0):.2f}
 • RUB: {financial_data.get('revenue_rub', 0):,.0f}
+Суммарная выручка: {financial_data.get('total_revenue', 0):,.2f}
 
 💸 <b>Чистыми заработано:</b>
 • USDT: {financial_data.get('net_usdt', 0):.2f}
 • RUB: {financial_data.get('net_rub', 0):,.0f}
+Суммарная прибыль: {financial_data.get('total_profit', 0):,.2f}
 
 💼 <b>Комиссии по сейлзам:</b>
 
@@ -922,6 +924,31 @@ class SalesBot:
                                 logger.info(f"ИП: {row[21]}")
                             except (ValueError, IndexError):
                                 pass
+            
+            # Дополнительно читаем суммарные значения из ячеек M4 и N4
+            try:
+                # Читаем ячейку M4 (суммарная выручка)
+                m4_value = sheet.acell('M4').value
+                if m4_value:
+                    try:
+                        m4_clean = str(m4_value).replace(' ', '').replace('\xa0', '').replace('₽', '').replace(',', '.')
+                        financial_data['total_revenue'] = float(m4_clean)
+                        logger.info(f"Суммарная выручка из M4: {financial_data['total_revenue']}")
+                    except (ValueError, TypeError) as e:
+                        logger.warning(f"Ошибка парсинга суммарной выручки из M4: {e}, значение: {m4_value}")
+                
+                # Читаем ячейку N4 (суммарная прибыль)
+                n4_value = sheet.acell('N4').value
+                if n4_value:
+                    try:
+                        n4_clean = str(n4_value).replace(' ', '').replace('\xa0', '').replace('₽', '').replace(',', '.')
+                        financial_data['total_profit'] = float(n4_clean)
+                        logger.info(f"Суммарная прибыль из N4: {financial_data['total_profit']}")
+                    except (ValueError, TypeError) as e:
+                        logger.warning(f"Ошибка парсинга суммарной прибыли из N4: {e}, значение: {n4_value}")
+                        
+            except Exception as e:
+                logger.warning(f"Не удалось прочитать ячейки M4/N4: {e}")
             
             logger.info(f"Итоговые данные: {financial_data}")
             return financial_data
