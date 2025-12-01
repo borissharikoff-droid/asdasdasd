@@ -288,11 +288,11 @@ class SalesBot:
             creds = Credentials.from_service_account_info(creds_data, scopes=config.SHEET_SCOPE)
             gc = gspread.authorize(creds)
             
-            # Открываем таблицу и выбираем/создаем вкладку "Ноябрь"
+            # Открываем таблицу и выбираем/создаем вкладку "Декабрь"
             logger.info(f"Открываем Google Sheets с ID: {self.sheets_id}")
             spreadsheet = gc.open_by_key(self.sheets_id)
             self.spreadsheet = spreadsheet
-            self.sheet = self._ensure_november_sheet(self.spreadsheet)
+            self.sheet = self._ensure_december_sheet(self.spreadsheet)
             
             # Создаем заголовки если их нет или если они неправильные
             first_row = self.sheet.get('A1:G1')
@@ -348,18 +348,18 @@ class SalesBot:
         def handle_message(message):
             self._handle_sales_message(message)
 
-    def _ensure_november_sheet(self, spreadsheet):
-        """Гарантирует наличие и возврат листа 'Ноябрь'"""
+    def _ensure_december_sheet(self, spreadsheet):
+        """Гарантирует наличие и возврат листа 'Декабрь'"""
         try:
-            sheet = spreadsheet.worksheet('Ноябрь')
+            sheet = spreadsheet.worksheet('Декабрь')
             return sheet
         except gspread.WorksheetNotFound:
-            logger.info("Вкладка 'Ноябрь' не найдена. Создаем новую вкладку...")
-            sheet = spreadsheet.add_worksheet(title='Ноябрь', rows=1000, cols=10)
+            logger.info("Вкладка 'Декабрь' не найдена. Создаем новую вкладку...")
+            sheet = spreadsheet.add_worksheet(title='Декабрь', rows=1000, cols=10)
             return sheet
 
     def _init_sheets(self):
-        """Инициализирует self.sheet для листа 'Ноябрь' если не инициализировано или потеряно"""
+        """Инициализирует self.sheet для листа 'Декабрь' если не инициализировано или потеряно"""
         try:
             import json
             creds_env = os.getenv('GOOGLE_CREDENTIALS_JSON')
@@ -384,7 +384,7 @@ class SalesBot:
             gc = gspread.authorize(creds)
             spreadsheet = gc.open_by_key(self.sheets_id)
             self.spreadsheet = spreadsheet
-            self.sheet = self._ensure_november_sheet(self.spreadsheet)
+            self.sheet = self._ensure_december_sheet(self.spreadsheet)
         except Exception as e:
             logger.warning(f"_init_sheets: не удалось переинициализировать Google Sheets: {e}")
     
@@ -483,8 +483,8 @@ class SalesBot:
             if not self.sheet:
                 self._init_sheets()
             
-            # Выбор листа: по умолчанию 'Ноябрь' или по клику пользователя
-            target_title = month_title_override or 'Ноябрь'
+            # Выбор листа: по умолчанию 'Декабрь' или по клику пользователя
+            target_title = month_title_override or 'Декабрь'
             if hasattr(self, 'spreadsheet') and self.spreadsheet:
                 try:
                     target_sheet = self.spreadsheet.worksheet(target_title)
@@ -1276,12 +1276,12 @@ class SalesBot:
                 str(data.get('comment', '')).strip()  # Комментарий
             ]
             
-            # На всякий случай каждый раз убеждаемся, что используем именно вкладку 'Ноябрь'
+            # На всякий случай каждый раз убеждаемся, что используем именно вкладку 'Декабрь'
             if hasattr(self, 'spreadsheet') and self.spreadsheet:
                 try:
-                    self.sheet = self._ensure_november_sheet(self.spreadsheet)
+                    self.sheet = self._ensure_december_sheet(self.spreadsheet)
                 except Exception as e:
-                    logger.warning(f"Не удалось переутвердить лист 'Ноябрь' перед записью: {e}")
+                    logger.warning(f"Не удалось переутвердить лист 'Декабрь' перед записью: {e}")
 
             if self.sheet:
                 # Получаем следующую пустую строку
