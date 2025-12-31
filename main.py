@@ -288,11 +288,11 @@ class SalesBot:
             creds = Credentials.from_service_account_info(creds_data, scopes=config.SHEET_SCOPE)
             gc = gspread.authorize(creds)
             
-            # Открываем таблицу и выбираем/создаем вкладку "Декабрь"
+            # Открываем таблицу и выбираем/создаем вкладку "Январь"
             logger.info(f"Открываем Google Sheets с ID: {self.sheets_id}")
             spreadsheet = gc.open_by_key(self.sheets_id)
             self.spreadsheet = spreadsheet
-            self.sheet = self._ensure_december_sheet(self.spreadsheet)
+            self.sheet = self._ensure_january_sheet(self.spreadsheet)
             
             # Создаем заголовки если их нет или если они неправильные
             first_row = self.sheet.get('A1:G1')
@@ -348,18 +348,18 @@ class SalesBot:
         def handle_message(message):
             self._handle_sales_message(message)
 
-    def _ensure_december_sheet(self, spreadsheet):
-        """Гарантирует наличие и возврат листа 'Декабрь'"""
+    def _ensure_january_sheet(self, spreadsheet):
+        """Гарантирует наличие и возврат листа 'Январь'"""
         try:
-            sheet = spreadsheet.worksheet('Декабрь')
+            sheet = spreadsheet.worksheet('Январь')
             return sheet
         except gspread.WorksheetNotFound:
-            logger.info("Вкладка 'Декабрь' не найдена. Создаем новую вкладку...")
-            sheet = spreadsheet.add_worksheet(title='Декабрь', rows=1000, cols=10)
+            logger.info("Вкладка 'Январь' не найдена. Создаем новую вкладку...")
+            sheet = spreadsheet.add_worksheet(title='Январь', rows=1000, cols=10)
             return sheet
 
     def _init_sheets(self):
-        """Инициализирует self.sheet для листа 'Декабрь' если не инициализировано или потеряно"""
+        """Инициализирует self.sheet для листа 'Январь' если не инициализировано или потеряно"""
         try:
             import json
             creds_env = os.getenv('GOOGLE_CREDENTIALS_JSON')
@@ -384,7 +384,7 @@ class SalesBot:
             gc = gspread.authorize(creds)
             spreadsheet = gc.open_by_key(self.sheets_id)
             self.spreadsheet = spreadsheet
-            self.sheet = self._ensure_december_sheet(self.spreadsheet)
+            self.sheet = self._ensure_january_sheet(self.spreadsheet)
         except Exception as e:
             logger.warning(f"_init_sheets: не удалось переинициализировать Google Sheets: {e}")
     
@@ -483,8 +483,8 @@ class SalesBot:
             if not self.sheet:
                 self._init_sheets()
             
-            # Выбор листа: по умолчанию 'Декабрь' или по клику пользователя
-            target_title = month_title_override or 'Декабрь'
+            # Выбор листа: по умолчанию 'Январь' или по клику пользователя
+            target_title = month_title_override or 'Январь'
             if hasattr(self, 'spreadsheet') and self.spreadsheet:
                 try:
                     target_sheet = self.spreadsheet.worksheet(target_title)
@@ -804,129 +804,133 @@ class SalesBot:
                 'roman_commission_rub': 0
             }
             
-            # Добавляем отладочное логирование
-            logger.info(f"Всего строк в таблице: {len(all_values)}")
+            # Вспомогательная функция для парсинга чисел
+            def parse_number(value_str: str) -> float:
+                """Парсит число из строки, обрабатывая пробелы, запятые и неразрывные пробелы"""
+                if not value_str:
+                    return 0.0
+                try:
+                    # Убираем все пробелы (включая неразрывные), символы валют, заменяем запятую на точку
+                    cleaned = str(value_str).replace(' ', '').replace('\xa0', '').replace('₽', '').replace('$', '')
+                    # Если есть и запятая, и точка - запятая это разделитель тысяч, точка - десятичный
+                    # Если только запятая - это может быть десятичный разделитель
+                    if ',' in cleaned and '.' in cleaned:
+                        # Запятая - разделитель тысяч, точка - десятичный
+                        cleaned = cleaned.replace(',', '')
+                    elif ',' in cleaned and '.' not in cleaned:
+                        # Только запятая - может быть десятичный разделитель (европейский формат)
+                        # Проверяем: если после запятой 2 цифры - это десятичный разделитель
+                        parts = cleaned.split(',')
+                        if len(parts) == 2 and len(parts[1]) <= 2:
+                            cleaned = cleaned.replace(',', '.')
+                        else:
+                            cleaned = cleaned.replace(',', '')
+                    return float(cleaned)
+                except (ValueError, AttributeError) as e:
+                    logger.debug(f"Ошибка парсинга числа '{value_str}': {e}")
+                    return 0.0
             
             # Проходим по всем строкам и ищем финансовые данные
             for i, row in enumerate(all_values):
-                logger.info(f"Строка {i}: {row}")
+                # Пропускаем заголовок
+                if i == 0:
+                    continue
                 
                 if len(row) >= 22:  # Проверяем, что строка достаточно длинная (до колонки V)
                     # Ищем строки с валютами USDT и RUB в колонке L (индекс 11)
+                    # Это строки с итоговыми финансовыми данными
                     if len(row) > 11 and row[11] in ['USDT', 'RUB']:
                         currency = row[11]
-                        logger.info(f"Найдена валюта {currency} в строке {i}")
-                        logger.info(f"Полная строка: {row}")
-                        logger.info(f"Колонка O (индекс 14): '{row[14] if len(row) > 14 else 'НЕТ'}'")
-                        logger.info(f"Колонка Q (индекс 16): '{row[16] if len(row) > 16 else 'НЕТ'}'")
+                        logger.debug(f"Найдена валюта {currency} в строке {i}")
                         
                         # Выручка (колонка M, индекс 12)
                         if len(row) > 12 and row[12]:
-                            try:
-                                revenue_str = row[12].replace(' ', '').replace('\xa0', '').replace('₽', '').replace(',', '.')
-                                revenue = float(revenue_str)
+                            revenue = parse_number(row[12])
+                            if revenue > 0:
                                 if currency == 'USDT':
                                     financial_data['revenue_usdt'] = revenue
                                 elif currency == 'RUB':
                                     financial_data['revenue_rub'] = revenue
-                                logger.info(f"Выручка {currency}: {revenue}")
-                            except (ValueError, IndexError) as e:
-                                logger.warning(f"Ошибка парсинга выручки: {e}, значение: {row[12]}")
+                                logger.debug(f"Выручка {currency}: {revenue}")
                         
                         # Чистыми заработано (колонка N, индекс 13)
                         if len(row) > 13 and row[13]:
-                            try:
-                                net_str = row[13].replace(' ', '').replace('\xa0', '').replace('₽', '').replace(',', '.')
-                                net = float(net_str)
+                            net = parse_number(row[13])
+                            if net > 0:
                                 if currency == 'USDT':
                                     financial_data['net_usdt'] = net
                                 elif currency == 'RUB':
                                     financial_data['net_rub'] = net
-                                logger.info(f"Чистыми {currency}: {net}")
-                            except (ValueError, IndexError) as e:
-                                logger.warning(f"Ошибка парсинга чистых: {e}, значение: {row[13]}")
+                                logger.debug(f"Чистыми {currency}: {net}")
                         
                         # Комиссии по сейлзам (колонки O, P, Q, R - индексы 14, 15, 16, 17)
                         # Дима (колонка O, индекс 14)
                         if len(row) > 14 and row[14]:
-                            try:
-                                original_value = row[14]
-                                commission_str = row[14].replace(' ', '').replace('\xa0', '').replace('₽', '').replace(',', '.')
-                                commission = float(commission_str)
+                            commission = parse_number(row[14])
+                            if commission > 0:
                                 if currency == 'USDT':
                                     financial_data['dima_commission_usdt'] = commission
                                 elif currency == 'RUB':
                                     financial_data['dima_commission_rub'] = commission
-                                logger.info(f"Комиссия Димы {currency}: исходное='{original_value}', обработанное='{commission_str}', результат={commission}")
-                            except (ValueError, IndexError) as e:
-                                logger.warning(f"Ошибка парсинга комиссии Димы: {e}, значение: {row[14]}")
+                                logger.debug(f"Комиссия Димы {currency}: {commission}")
                         
                         # Алина (колонка P, индекс 15)
                         if len(row) > 15 and row[15]:
-                            try:
-                                commission_str = row[15].replace(' ', '').replace('\xa0', '').replace('₽', '').replace(',', '.')
-                                commission = float(commission_str)
+                            commission = parse_number(row[15])
+                            if commission > 0:
                                 if currency == 'USDT':
                                     financial_data['alina_commission_usdt'] = commission
                                 elif currency == 'RUB':
                                     financial_data['alina_commission_rub'] = commission
-                                logger.info(f"Комиссия Алины {currency}: {commission}")
-                            except (ValueError, IndexError) as e:
-                                logger.warning(f"Ошибка парсинга комиссии Алины: {e}, значение: {row[15]}")
+                                logger.debug(f"Комиссия Алины {currency}: {commission}")
                         
                         # Ксения (колонка Q, индекс 16)
                         if len(row) > 16 and row[16]:
-                            try:
-                                original_value = row[16]
-                                commission_str = row[16].replace(' ', '').replace('\xa0', '').replace('₽', '').replace(',', '.')
-                                commission = float(commission_str)
+                            commission = parse_number(row[16])
+                            if commission > 0:
                                 if currency == 'USDT':
                                     financial_data['ksenia_commission_usdt'] = commission
                                 elif currency == 'RUB':
                                     financial_data['ksenia_commission_rub'] = commission
-                                logger.info(f"Комиссия Ксении {currency}: исходное='{original_value}', обработанное='{commission_str}', результат={commission}")
-                            except (ValueError, IndexError) as e:
-                                logger.warning(f"Ошибка парсинга комиссии Ксении: {e}, значение: {row[16]}")
+                                logger.debug(f"Комиссия Ксении {currency}: {commission}")
                         
                         # Роман (колонка R, индекс 17)
                         if len(row) > 17 and row[17]:
-                            try:
-                                commission_str = row[17].replace(' ', '').replace('\xa0', '').replace('₽', '').replace(',', '.')
-                                commission = float(commission_str)
+                            commission = parse_number(row[17])
+                            if commission > 0:
                                 if currency == 'USDT':
                                     financial_data['roman_commission_usdt'] = commission
                                 elif currency == 'RUB':
                                     financial_data['roman_commission_rub'] = commission
-                                logger.info(f"Комиссия Романа {currency}: {commission}")
-                            except (ValueError, IndexError) as e:
-                                logger.warning(f"Ошибка парсинга комиссии Романа: {e}, значение: {row[17]}")
+                                logger.debug(f"Комиссия Романа {currency}: {commission}")
                         
                         # Счетчики по типам оплаты (колонки S, T, U, V - индексы 18, 19, 20, 21)
                         if len(row) > 18 and row[18]:  # СБП
                             try:
-                                financial_data['sbp_count'] = int(row[18])
-                                logger.info(f"СБП: {row[18]}")
+                                # Убираем пробелы и парсим как целое число
+                                sbp_str = str(row[18]).replace(' ', '').replace('\xa0', '')
+                                financial_data['sbp_count'] = int(float(sbp_str)) if sbp_str else 0
                             except (ValueError, IndexError):
                                 pass
                         
                         if len(row) > 19 and row[19]:  # Карта
                             try:
-                                financial_data['card_count'] = int(row[19])
-                                logger.info(f"Карта: {row[19]}")
+                                card_str = str(row[19]).replace(' ', '').replace('\xa0', '')
+                                financial_data['card_count'] = int(float(card_str)) if card_str else 0
                             except (ValueError, IndexError):
                                 pass
                         
                         if len(row) > 20 and row[20]:  # Крипта
                             try:
-                                financial_data['crypto_count'] = int(row[20])
-                                logger.info(f"Крипта: {row[20]}")
+                                crypto_str = str(row[20]).replace(' ', '').replace('\xa0', '')
+                                financial_data['crypto_count'] = int(float(crypto_str)) if crypto_str else 0
                             except (ValueError, IndexError):
                                 pass
                         
                         if len(row) > 21 and row[21]:  # ИП
                             try:
-                                financial_data['ip_count'] = int(row[21])
-                                logger.info(f"ИП: {row[21]}")
+                                ip_str = str(row[21]).replace(' ', '').replace('\xa0', '')
+                                financial_data['ip_count'] = int(float(ip_str)) if ip_str else 0
                             except (ValueError, IndexError):
                                 pass
             
@@ -936,9 +940,18 @@ class SalesBot:
                 m4_value = sheet.acell('M4').value
                 if m4_value:
                     try:
-                        m4_clean = str(m4_value).replace(' ', '').replace('\xa0', '').replace('₽', '').replace(',', '.')
+                        m4_clean = str(m4_value).replace(' ', '').replace('\xa0', '').replace('₽', '').replace('$', '')
+                        # Обрабатываем запятую как десятичный разделитель или разделитель тысяч
+                        if ',' in m4_clean and '.' in m4_clean:
+                            m4_clean = m4_clean.replace(',', '')
+                        elif ',' in m4_clean:
+                            parts = m4_clean.split(',')
+                            if len(parts) == 2 and len(parts[1]) <= 2:
+                                m4_clean = m4_clean.replace(',', '.')
+                            else:
+                                m4_clean = m4_clean.replace(',', '')
                         financial_data['total_revenue'] = float(m4_clean)
-                        logger.info(f"Суммарная выручка из M4: {financial_data['total_revenue']}")
+                        logger.debug(f"Суммарная выручка из M4: {financial_data['total_revenue']}")
                     except (ValueError, TypeError) as e:
                         logger.warning(f"Ошибка парсинга суммарной выручки из M4: {e}, значение: {m4_value}")
                 
@@ -946,16 +959,25 @@ class SalesBot:
                 n4_value = sheet.acell('N4').value
                 if n4_value:
                     try:
-                        n4_clean = str(n4_value).replace(' ', '').replace('\xa0', '').replace('₽', '').replace(',', '.')
+                        n4_clean = str(n4_value).replace(' ', '').replace('\xa0', '').replace('₽', '').replace('$', '')
+                        # Обрабатываем запятую как десятичный разделитель или разделитель тысяч
+                        if ',' in n4_clean and '.' in n4_clean:
+                            n4_clean = n4_clean.replace(',', '')
+                        elif ',' in n4_clean:
+                            parts = n4_clean.split(',')
+                            if len(parts) == 2 and len(parts[1]) <= 2:
+                                n4_clean = n4_clean.replace(',', '.')
+                            else:
+                                n4_clean = n4_clean.replace(',', '')
                         financial_data['total_profit'] = float(n4_clean)
-                        logger.info(f"Суммарная прибыль из N4: {financial_data['total_profit']}")
+                        logger.debug(f"Суммарная прибыль из N4: {financial_data['total_profit']}")
                     except (ValueError, TypeError) as e:
                         logger.warning(f"Ошибка парсинга суммарной прибыли из N4: {e}, значение: {n4_value}")
                         
             except Exception as e:
                 logger.warning(f"Не удалось прочитать ячейки M4/N4: {e}")
             
-            logger.info(f"Итоговые данные: {financial_data}")
+            logger.debug(f"Итоговые данные: {financial_data}")
             return financial_data
             
         except Exception as e:
@@ -1276,12 +1298,12 @@ class SalesBot:
                 str(data.get('comment', '')).strip()  # Комментарий
             ]
             
-            # На всякий случай каждый раз убеждаемся, что используем именно вкладку 'Декабрь'
+            # На всякий случай каждый раз убеждаемся, что используем именно вкладку 'Январь'
             if hasattr(self, 'spreadsheet') and self.spreadsheet:
                 try:
-                    self.sheet = self._ensure_december_sheet(self.spreadsheet)
+                    self.sheet = self._ensure_january_sheet(self.spreadsheet)
                 except Exception as e:
-                    logger.warning(f"Не удалось переутвердить лист 'Декабрь' перед записью: {e}")
+                    logger.warning(f"Не удалось переутвердить лист 'Январь' перед записью: {e}")
 
             if self.sheet:
                 # Получаем следующую пустую строку
